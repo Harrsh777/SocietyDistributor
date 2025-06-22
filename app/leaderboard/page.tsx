@@ -44,13 +44,20 @@ import { Progress } from "@/components/ui/progress";
 
 type MetricKey = 'retailing' | 'dgp' | 'base_fb' | 'productivity' | 'ws_ihr';
 
+type MonthKey = 
+  'jul_24' | 'aug_24' | 'sep_24' | 'oct_24' | 'nov_24' | 'dec_24' |
+  'jan_25' | 'feb_25' | 'mar_25' | 'apr_25' | 'may_25' | 'jun_25';
+
+
 type RawDSEData = {
   dse_name: string;
   branch?: string;
   dse_type?: string;
   district?: string;
   state?: string;
-  [key: string]: any; // Allows for dynamic month keys like 'retailing_jul_24'
+} & {
+  // This indexed signature allows keys like 'retailing_jul_24' to be numbers or strings
+  [K in `${MetricKey}_${MonthKey}`]?: string | number;
 };
 
 type DSEPerformance = {
@@ -118,13 +125,14 @@ export default function LeaderboardDashboard() {
 
       // Calculate averages for each metric
       const metrics: MetricKey[] = ['retailing', 'dgp', 'base_fb', 'productivity', 'ws_ihr'];
-
-      metrics.forEach(metric => {
+ metrics.forEach(metric => {
         const metricValues: number[] = [];
 
         for (let i = 0; i < 12; i++) {
           const monthKey = `${metric}_${getMonthKey(i)}`;
-          const value = parseFloat(row[monthKey] || '0');
+          // Access the value using the type assertion, and then explicitly convert it to a string
+          const rawValue = row[monthKey as `${MetricKey}_${MonthKey}`];
+          const value = parseFloat(String(rawValue || '0')); // Explicitly convert to string
           if (!isNaN(value)) {
             metricValues.push(value);
           }

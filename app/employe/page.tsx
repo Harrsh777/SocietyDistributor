@@ -1031,9 +1031,7 @@ function EmployeeCard({
     new Date().getFullYear() - new Date(employee.date_of_joining).getFullYear() : 
     null;
 
-  function deleteEmployee(_id: string) {
-    throw new Error('Function not implemented.');
-  }
+
 
   return (
     <motion.div
@@ -1112,20 +1110,7 @@ function EmployeeCard({
             {employee.employee_code || 'No ID'}
           </span>
           <div className="flex items-center">
-            {isAdmin && (
-              // In your EmployeeCard component, update the delete button:
-<motion.button
-  whileHover={{ scale: 1.2 }}
-  whileTap={{ scale: 0.9 }}
-  className="mr-2 text-red-500 hover:text-red-700 dark:hover:text-red-400"
-  onClick={(e) => {
-    e.stopPropagation();
-    deleteEmployee(employee.id); // Actually use the delete function
-  }}
->
-  <FiX className="h-4 w-4" />
-</motion.button>
-            )}
+           
             <FiChevronRight className="h-5 w-5 text-blue-500" />
           </div>
         </div>
