@@ -1013,7 +1013,6 @@ function BranchCardSkeleton() {
 function EmployeeCard({ 
   employee,
   onClick,
-  isAdmin
 }: { 
   employee: Employee;
   onClick: () => void;
