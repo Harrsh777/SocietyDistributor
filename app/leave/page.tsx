@@ -108,7 +108,7 @@ export default function LeaveDashboard() {
   const displayData = topLeaveFilter
     ? [...filteredData]
       .sort((a, b) => calculateTotalLeaves(b) - calculateTotalLeaves(a))
-      .slice(0, 5)
+      .slice(0, 10)
     : filteredData;
 
   // Calculate statistics based on current month
@@ -172,78 +172,84 @@ export default function LeaveDashboard() {
     }
   };
 
-  const checkNotifications = async () => {
-    try {
-      const { data } = await supabase
-        .from('notification_status')
-        .select('employee_id');
+const checkNotifications = async () => {
+  try {
+    const { data } = await supabase
+      .from('notification_status')
+      .select('employee_id');
 
-      if (data) {
-        const statusMap = data.reduce((acc: Record<string, boolean>, item: { employee_id: string }) => {
-          acc[item.employee_id] = true;
-          return acc;
-        }, {} as Record<string, boolean>);
+    if (data) {
+      const statusMap = data.reduce((acc: Record<string, boolean>, item: { employee_id: string }) => {
+        acc[item.employee_id] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
 
-        setNotificationSent(statusMap);
-      }
-    } catch (error) {
-      console.error('Error checking notifications:', error);
+      setNotificationSent(statusMap);
     }
-  };
+  } catch (error) {
+    console.error('Error checking notifications:', error);
+  }
+};
 
-  const sendLeaveNotification = async (employee: EmployeeData, totalLeaves: number) => {
-    try {
-      const leaveDetails = getLeaveDetails(employee);
+// Call this in your useEffect
+useEffect(() => {
+  fetchAttendanceData();
+  checkNotifications();
+}, []);
 
-      // Create notification email content
-      const emailContent = `
-        <h2>Leave Notification Alert</h2>
-        <p>Employee ${formatEmployeeName(employee.dse_name)} from ${employee.branch} branch has reached ${totalLeaves} leaves this month.</p>
-        <h3>Leave Details:</h3>
-        <ul>
-          ${leaveDetails.map(leave => `
-            <li>
-              <strong>${leave.date}:</strong> ${leave.reason}
-            </li>
-          `).join('')}
-        </ul>
-        <p>Please review this employee's leave pattern.</p>
-      `;
+ const sendLeaveNotification = async (employee: EmployeeData, totalLeaves: number) => {
+  try {
+    const leaveDetails = getLeaveDetails(employee);
 
-      // Insert notification record
-      const { error } = await supabase
-        .from('leave_notifications')
-        .insert([{
-          employee_id: employee.id,
-          employee_name: formatEmployeeName(employee.dse_name),
-          branch: employee.branch || 'Unknown',
-          total_leaves: totalLeaves,
-          leave_dates: leaveDetails.map(leave => leave.date),
-          leave_reasons: leaveDetails.map(leave => leave.reason),
-          hr_email: 'hr@yourcompany.com',
-          month: currentMonth + 1,
-          year: currentYear
-        }]);
+    // Create notification email content
+    const emailContent = `
+      <h2>Leave Notification Alert</h2>
+      <p>Employee ${formatEmployeeName(employee.dse_name)} from ${employee.branch} branch has reached ${totalLeaves} leaves this month.</p>
+      <h3>Leave Details:</h3>
+      <ul>
+        ${leaveDetails.map(leave => `
+          <li>
+            <strong>${leave.date}:</strong> ${leave.reason}
+          </li>
+        `).join('')}
+      </ul>
+      <p>Please review this employee's leave pattern.</p>
+    `;
 
-      if (error) throw error;
+    // Insert notification record
+    const { error } = await supabase
+      .from('leave_notifications')
+      .insert([{
+        employee_id: employee.id,
+        employee_name: formatEmployeeName(employee.dse_name),
+        branch: employee.branch || 'Unknown',
+        total_leaves: totalLeaves,
+        leave_dates: leaveDetails.map(leave => leave.date),
+        leave_reasons: leaveDetails.map(leave => leave.reason),
+        hr_email: 'hr@yourcompany.com',
+        month: currentMonth + 1,
+        year: currentYear
+      }]);
 
-      // Send email using Supabase function (requires setting up email service)
-      const { error: emailError } = await supabase.functions.invoke('send-email', {
-        body: JSON.stringify({
-          to: 'hr@yourcompany.com',
-          subject: `Leave Alert: ${formatEmployeeName(employee.dse_name)} (${totalLeaves} leaves)`,
-          html: emailContent
-        })
-      });
+    if (error) throw error;
 
-      if (emailError) throw emailError;
+    // Send email using Supabase function (requires setting up email service)
+    const { error: emailError } = await supabase.functions.invoke('send-email', {
+      body: JSON.stringify({
+        to: 'harrshh077@gmail.com',
+        subject: `Leave Alert: ${formatEmployeeName(employee.dse_name)} (${totalLeaves} leaves)`,
+        html: emailContent
+      })
+    });
 
-      console.log('Notification sent to HR for employee:', employee.dse_name);
+    if (emailError) throw emailError;
 
-    } catch (error) {
-      console.error('Error sending notification:', error);
-    }
-  };
+    console.log('Notification sent to HR for employee:', employee.dse_name);
+
+  } catch (error) {
+    console.error('Error sending notification:', error);
+  }
+};
 
   const handleAddLeave = async () => {
     if (!selectedEmployee || !leaveDate || !leaveReason) {
@@ -629,12 +635,12 @@ export default function LeaveDashboard() {
           {topLeaveFilter ? (
             <>
               <FiAward className="text-yellow-300" />
-              <span>Showing Top 5</span>
+              <span>Showing Top 10</span>
             </>
           ) : (
             <>
               <FiTrendingUp />
-              <span>Show Top 5</span>
+              <span>Show Top 10</span>
             </>
           )}
         </motion.button>

@@ -168,21 +168,91 @@ export default function EmployeeProfile() {
   }
 
   // Format date
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not available'
-    return new Date(dateString).toLocaleDateString('en-IN', {
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return 'Not available';
+  
+  try {
+    // First try parsing as ISO string (from Supabase)
+    let date = new Date(dateString);
+    
+    // If that fails, try parsing as other formats
+    if (isNaN(date.getTime())) {
+      // Handle DD-MM-YYYY format (like "20-04-2005")
+      if (dateString.includes('-')) {
+        const [day, month, year] = dateString.split('-').map(Number);
+        if (day && month && year) {
+          date = new Date(year, month - 1, day); // Month is 0-indexed in JS
+        }
+      }
+      // Handle DD/MM/YYYY format
+      else if (dateString.includes('/')) {
+        const [day, month, year] = dateString.split('/').map(Number);
+        if (day && month && year) {
+          date = new Date(year, month - 1, day);
+        }
+      }
+    }
+
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+
+    return date.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
-    })
+    });
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Invalid date';
   }
+};
 
   // Calculate years of service
-  const getYearsOfService = (joiningDate: string | null) => {
-    if (!joiningDate) return 0
-    const joinDate = new Date(joiningDate)
-    return new Date().getFullYear() - joinDate.getFullYear()
+const getYearsOfService = (joiningDate: string | null) => {
+  if (!joiningDate) return 0;
+  
+  try {
+    let joinDate: Date;
+    
+    // First try parsing as ISO string
+    joinDate = new Date(joiningDate);
+    
+    // If that fails, try parsing as other formats
+    if (isNaN(joinDate.getTime())) {
+      // Handle DD-MM-YYYY format (like "20-04-2005")
+      if (joiningDate.includes('-')) {
+        const [day, month, year] = joiningDate.split('-').map(Number);
+        if (day && month && year) {
+          joinDate = new Date(year, month - 1, day);
+        }
+      }
+      // Handle DD/MM/YYYY format
+      else if (joiningDate.includes('/')) {
+        const [day, month, year] = joiningDate.split('/').map(Number);
+        if (day && month && year) {
+          joinDate = new Date(year, month - 1, day);
+        }
+      }
+    }
+
+    if (isNaN(joinDate.getTime())) return 0;
+    
+    const currentDate = new Date();
+    let years = currentDate.getFullYear() - joinDate.getFullYear();
+    const monthDiff = currentDate.getMonth() - joinDate.getMonth();
+    
+    // Adjust if anniversary hasn't occurred yet this year
+    if (monthDiff < 0 || (monthDiff === 0 && currentDate.getDate() < joinDate.getDate())) {
+      years--;
+    }
+    
+    return Math.max(0, years); // Ensure we don't return negative years
+  } catch (error) {
+    console.error('Error calculating years of service:', error);
+    return 0;
   }
+};
 
   if (loading) {
     return (
