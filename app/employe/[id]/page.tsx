@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
-import Image from 'next/image' // Import the Image component
+import Image from 'next/image'
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -34,18 +34,15 @@ interface Employee {
   created_at: string | null
   reporting_manager: string | null
   department: string | null
-  image_url: string | null // Added image_url field
+  image_url: string | null
 }
 
-// --- ProfileCard Component Definition ---
-interface ProfileCardProps {
-  icon: React.ReactNode // Can be any React node, e.g., an SVG icon
+const ProfileCard: React.FC<{
+  icon: React.ReactNode
   title: string
   value: string
   description: string
-}
-
-const ProfileCard: React.FC<ProfileCardProps> = ({ icon, title, value, description }) => {
+}> = ({ icon, title, value, description }) => {
   return (
     <motion.div
       className="bg-white rounded-lg shadow-sm p-5 flex items-start space-x-4 border border-gray-200"
@@ -66,8 +63,6 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ icon, title, value, descripti
     </motion.div>
   )
 }
-// --- End ProfileCard Component Definition ---
-
 
 export default function EmployeeProfile() {
   const params = useParams()
@@ -111,7 +106,6 @@ export default function EmployeeProfile() {
     fetchEmployee()
   }, [params.id, router])
 
-  // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
@@ -120,31 +114,26 @@ export default function EmployeeProfile() {
     }
   }
 
-  // Upload image to Supabase storage
   const uploadImage = async () => {
     if (!selectedFile || !employee) return
 
     try {
       setImageUploading(true)
 
-      // Generate unique filename
       const fileExt = selectedFile.name.split('.').pop()
       const fileName = `${employee.id}-${Date.now()}.${fileExt}`
       const filePath = `employee-images/${fileName}`
 
-      // Upload to Supabase storage
-      const { error: uploadError } = await supabase.storage // Removed uploadData from destructuring
+      const { error: uploadError } = await supabase.storage
         .from('employee-images')
         .upload(filePath, selectedFile)
 
       if (uploadError) throw uploadError
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('employee-images')
         .getPublicUrl(filePath)
 
-      // Update employee record with new image URL
       const { error: updateError } = await supabase
         .from('employees')
         .update({ image_url: urlData.publicUrl })
@@ -152,7 +141,6 @@ export default function EmployeeProfile() {
 
       if (updateError) throw updateError
 
-      // Update local state
       setEmployee(prev => prev ? { ...prev, image_url: urlData.publicUrl } : null)
       setShowImageModal(false)
     } catch (error) {
@@ -167,92 +155,81 @@ export default function EmployeeProfile() {
     }
   }
 
-  // Format date
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return 'Not available';
-  
-  try {
-    // First try parsing as ISO string (from Supabase)
-    let date = new Date(dateString);
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not available';
     
-    // If that fails, try parsing as other formats
-    if (isNaN(date.getTime())) {
-      // Handle DD-MM-YYYY format (like "20-04-2005")
-      if (dateString.includes('-')) {
-        const [day, month, year] = dateString.split('-').map(Number);
-        if (day && month && year) {
-          date = new Date(year, month - 1, day); // Month is 0-indexed in JS
+    try {
+      let date = new Date(dateString);
+      
+      if (isNaN(date.getTime())) {
+        if (dateString.includes('-')) {
+          const [day, month, year] = dateString.split('-').map(Number);
+          if (day && month && year) {
+            date = new Date(year, month - 1, day);
+          }
+        }
+        else if (dateString.includes('/')) {
+          const [day, month, year] = dateString.split('/').map(Number);
+          if (day && month && year) {
+            date = new Date(year, month - 1, day);
+          }
         }
       }
-      // Handle DD/MM/YYYY format
-      else if (dateString.includes('/')) {
-        const [day, month, year] = dateString.split('/').map(Number);
-        if (day && month && year) {
-          date = new Date(year, month - 1, day);
-        }
-      }
-    }
 
-    if (isNaN(date.getTime())) {
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+
+      return date.toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
       return 'Invalid date';
     }
+  };
 
-    return date.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return 'Invalid date';
-  }
-};
-
-  // Calculate years of service
-const getYearsOfService = (joiningDate: string | null) => {
-  if (!joiningDate) return 0;
-  
-  try {
-    let joinDate: Date;
+  const getYearsOfService = (joiningDate: string | null) => {
+    if (!joiningDate) return 0;
     
-    // First try parsing as ISO string
-    joinDate = new Date(joiningDate);
-    
-    // If that fails, try parsing as other formats
-    if (isNaN(joinDate.getTime())) {
-      // Handle DD-MM-YYYY format (like "20-04-2005")
-      if (joiningDate.includes('-')) {
-        const [day, month, year] = joiningDate.split('-').map(Number);
-        if (day && month && year) {
-          joinDate = new Date(year, month - 1, day);
+    try {
+      let joinDate: Date;
+      
+      joinDate = new Date(joiningDate);
+      
+      if (isNaN(joinDate.getTime())) {
+        if (joiningDate.includes('-')) {
+          const [day, month, year] = joiningDate.split('-').map(Number);
+          if (day && month && year) {
+            joinDate = new Date(year, month - 1, day);
+          }
+        }
+        else if (joiningDate.includes('/')) {
+          const [day, month, year] = joiningDate.split('/').map(Number);
+          if (day && month && year) {
+            joinDate = new Date(year, month - 1, day);
+          }
         }
       }
-      // Handle DD/MM/YYYY format
-      else if (joiningDate.includes('/')) {
-        const [day, month, year] = joiningDate.split('/').map(Number);
-        if (day && month && year) {
-          joinDate = new Date(year, month - 1, day);
-        }
-      }
-    }
 
-    if (isNaN(joinDate.getTime())) return 0;
-    
-    const currentDate = new Date();
-    let years = currentDate.getFullYear() - joinDate.getFullYear();
-    const monthDiff = currentDate.getMonth() - joinDate.getMonth();
-    
-    // Adjust if anniversary hasn't occurred yet this year
-    if (monthDiff < 0 || (monthDiff === 0 && currentDate.getDate() < joinDate.getDate())) {
-      years--;
+      if (isNaN(joinDate.getTime())) return 0;
+      
+      const currentDate = new Date();
+      let years = currentDate.getFullYear() - joinDate.getFullYear();
+      const monthDiff = currentDate.getMonth() - joinDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && currentDate.getDate() < joinDate.getDate())) {
+        years--;
+      }
+      
+      return Math.max(0, years);
+    } catch (error) {
+      console.error('Error calculating years of service:', error);
+      return 0;
     }
-    
-    return Math.max(0, years); // Ensure we don't return negative years
-  } catch (error) {
-    console.error('Error calculating years of service:', error);
-    return 0;
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -328,9 +305,9 @@ const getYearsOfService = (joiningDate: string | null) => {
                       <Image
                         src={previewUrl}
                         alt="Preview"
-                        fill // Use fill for responsive image
+                        fill
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        style={{ objectFit: 'cover' }} // Use objectFit for styling
+                        style={{ objectFit: 'cover' }}
                       />
                     ) : (
                       <div className="h-full w-full bg-gray-100 flex items-center justify-center">
@@ -419,9 +396,9 @@ const getYearsOfService = (joiningDate: string | null) => {
                       <Image
                         src={employee.image_url}
                         alt={employee.employee_name || 'Employee'}
-                        fill // Use fill for responsive image
+                        fill
                         sizes="(max-width: 768px) 100vw, 33vw"
-                        style={{ objectFit: 'cover' }} // Use objectFit for styling
+                        style={{ objectFit: 'cover' }}
                       />
                     ) : (
                       <span className="text-5xl font-bold text-blue-600">
@@ -527,7 +504,6 @@ const getYearsOfService = (joiningDate: string | null) => {
             </div>
           </motion.div>
 
-
           {/* Main Content */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -602,7 +578,7 @@ const getYearsOfService = (joiningDate: string | null) => {
                 <AnimatePresence mode="wait">
                   {activeTab === 'profile' && (
                     <motion.div
-                      key="profile"
+                      key="profile-tab"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -664,9 +640,10 @@ const getYearsOfService = (joiningDate: string | null) => {
                       </div>
                     </motion.div>
                   )}
+
                   {activeTab === 'personal' && (
                     <motion.div
-                      key="personal"
+                      key="personal-tab"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
@@ -718,225 +695,6 @@ const getYearsOfService = (joiningDate: string | null) => {
                             value={employee.father_name || 'Not specified'}
                             description="Employee's father's name"
                           />
-                          <ProfileCard
-                            icon={
-                              <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 14v6a2 2 0 01-2 2H8a2 2 0 01-2-2v-6M10 10V2m0 0l4 4m-4-4L6 6m6 10h.01" />
-                              </svg>
-                            }
-                            title="Mother's Name"
-                            value={employee.mother_name || 'Not specified'}
-                            description="Employee's mother's name"
-                          />
-                          <ProfileCard
-                            icon={
-                              <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                              </svg>
-                            }
-                            title="Wife's Name"
-                            value={employee.wife_name || 'Not specified'}
-                            description="Employee's spouse's name"
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                  {activeTab === 'employment' && (
-                    <motion.div
-                      key="employment"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                          }
-                          title="Department"
-                          value={employee.department || 'Not specified'}
-                          description="Department within the organization"
-                        />
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          }
-                          title="Branch"
-                          value={employee.branch || 'Not specified'}
-                          description="Branch of employment"
-                        />
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h10a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0h4" />
-                            </svg>
-                          }
-                          title="Employee Code"
-                          value={employee.employee_code || 'N/A'}
-                          description="Unique employee identification code"
-                        />
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Work Details</h3>
-                        <p className="text-gray-700">
-                          This section would contain more detailed employment history, salary information, and performance reviews.
-                          For the purpose of this profile, only basic employment details are displayed.
-                        </p>
-                      </div>
-                    </motion.div>
-                  )}
-        
-                  {activeTab === 'personal' && (
-                    <motion.div
-                      key="personal"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          }
-                          title="Date of Birth"
-                          value={formatDate(employee.date_of_birth)}
-                          description="Employee's birth date"
-                        />
-
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                          }
-                          title="Phone Number"
-                          value={employee.employee_personal_number || 'Not available'}
-                          description="Primary contact number"
-                        />
-
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                          }
-                          title="Email"
-                          value={
-                            employee.employee_name
-                              ? `${employee.employee_name.toLowerCase().replace(/\s+/g, '.')}` + `@company.com`
-                              : 'email@company.com'
-                          }
-                          description="Work email address"
-                        />
-
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          }
-                          title="Address"
-                          value={employee.address || 'Not available'}
-                          description="Current residential address"
-                        />
-                      </div>
-
-                      {/* Family Information */}
-                      {(employee.father_name || employee.mother_name || employee.wife_name) && (
-                        <div className="bg-gray-50 rounded-lg p-6">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Family Information</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {employee.father_name && (
-                              <div className="flex items-start">
-                                <svg className="flex-shrink-0 h-5 w-5 text-gray-500 mt-0.5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                <div>
-                                  <p className="text-sm text-gray-600">Father</p>
-                                  <p className="text-sm font-medium text-gray-900">{employee.father_name}</p>
-                                </div>
-                              </div>
-                            )}
-
-                            {employee.mother_name && (
-                              <div className="flex items-start">
-                                <svg className="flex-shrink-0 h-5 w-5 text-gray-500 mt-0.5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                <div>
-                                  <p className="text-sm text-gray-600">Mother</p>
-                                  <p className="text-sm font-medium text-gray-900">{employee.mother_name}</p>
-                                </div>
-                              </div>
-                            )}
-
-                            {employee.wife_name && (
-                              <div className="flex items-start">
-                                <svg className="flex-shrink-0 h-5 w-5 text-gray-500 mt-0.5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                <div>
-                                  <p className="text-sm text-gray-600">Wife</p>
-                                  <p className="text-sm font-medium text-gray-900">{employee.wife_name}</p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-
-                  {activeTab === 'employment' && (
-                    <motion.div
-                      key="employment"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                          }
-                          title="Branch"
-                          value={employee.branch || 'Not specified'}
-                          description="The branch where the employee is based."
-                        />
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                            </svg>
-                          }
-                          title="Department"
-                          value={employee.department || 'Not specified'}
-                          description="The department the employee works in."
-                        />
-                        <ProfileCard
-                          icon={
-                            <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0h4m-4 0h.01M9 16l3-3m0 0l3 3m-3-3v6" />
-                            </svg>
-                          }
-                          title="Employee Code"
-                          value={employee.employee_code || 'N/A'}
-                          description="Unique identifier for the employee."
-                        />
                         <ProfileCard
                           icon={
                             <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -948,8 +706,70 @@ const getYearsOfService = (joiningDate: string | null) => {
                           description="The employee's official job title."
                         />
                       </div>
+                      </div>
                     </motion.div>
                   )}
+                  {activeTab === 'employment' && (
+  <motion.div
+    key="employment"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.2 }}
+  >
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <ProfileCard
+        icon={
+          <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        }
+        title="Department"
+        value={employee.department || 'Not specified'}
+        description="Department within the organization"
+      />
+      <ProfileCard
+        icon={
+          <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        }
+        title="Branch"
+        value={employee.branch || 'Not specified'}
+        description="Branch of employment"
+      />
+      <ProfileCard
+        icon={
+          <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0h4" />
+          </svg>
+        }
+        title="Employee Code"
+        value={employee.employee_code || 'N/A'}
+        description="Unique employee identification code"
+      />
+      <ProfileCard
+        icon={
+          <svg className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        }
+        title="Joining Date"
+        value={formatDate(employee.date_of_joining)}
+        description={`${getYearsOfService(employee.date_of_joining)} years with the company`}
+      />
+    </div>
+    <div className="bg-gray-50 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Work Details</h3>
+      <p className="text-gray-700">
+        {employee.employee_name || 'This employee'} works in the {employee.department || ''} department
+        at the {employee.branch || ''} branch. They joined on {formatDate(employee.date_of_joining)} and
+        have been with the company for {getYearsOfService(employee.date_of_joining)} years.
+      </p>
+    </div>
+  </motion.div>
+)}
                 </AnimatePresence>
               </div>
             </div>

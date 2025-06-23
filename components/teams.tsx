@@ -60,7 +60,6 @@ export default function TeamCarousel() {
   const [showArrows, setShowArrows] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const animationFrameRef = useRef<number>();
-  const scrollIntervalRef = useRef<NodeJS.Timeout>();
 
   // Create infinite loop by duplicating the items
   const duplicatedMembers = [...teamMembersData, ...teamMembersData];
@@ -70,7 +69,7 @@ export default function TeamCarousel() {
     const smoothScroll = () => {
       if (!carouselRef.current || isHovered) return;
 
-      const { scrollLeft, clientWidth } = carouselRef.current;
+      const { scrollLeft } = carouselRef.current;
       const scrollWidth = carouselRef.current.scrollWidth / 2;
       
       const nextPos = scrollLeft + 0.75; // Adjust scroll speed here
@@ -145,7 +144,7 @@ export default function TeamCarousel() {
             Meet Our <span className="text-blue-600">Leadership</span>
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto text-lg">
-            The talented professionals driving our company's success
+            The talented professionals driving our company@apos;s success
           </p>
         </div>
 
