@@ -8,6 +8,8 @@ import Contact from '@/components/contact';
 import About from '@/components/About';
 import Partners from '@/components/Partners';
 import TeamSection from '@/components/teams';
+// New import for animations
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState('home');
@@ -30,6 +32,7 @@ export default function Home() {
 
   const router = useRouter();
 
+  
   // Load announcement from localStorage on component mount
   useEffect(() => {
     const savedAnnouncement = localStorage.getItem('currentAnnouncement');
@@ -64,8 +67,8 @@ export default function Home() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
       
-      // Section detection with IntersectionObserver
-      const sections = ['home', 'about', 'branches', 'team', 'contact'];
+      // Section detection logic remains the same
+      const sections = ['home', 'about', 'branches', 'teams', 'contact'];
       const observerOptions = {
         root: null,
         rootMargin: '0px',
@@ -109,7 +112,6 @@ export default function Home() {
     const gap = 24; // space-x-6 = 24px
     const cardsToShow = 4;
 
-    // Calculate total width of cards to show
     const visibleWidth = (cardWidth * cardsToShow) + (gap * (cardsToShow - 1));
 
     const scrollCarousel = () => {
@@ -121,7 +123,6 @@ export default function Home() {
       scrollAmount += speed;
       carousel.scrollLeft = scrollAmount;
 
-      // Reset scroll position when reaching the end
       if (scrollAmount >= carousel.scrollWidth / 2) {
         scrollAmount = 0;
         carousel.scrollLeft = 0;
@@ -130,7 +131,6 @@ export default function Home() {
       animationId = requestAnimationFrame(scrollCarousel);
     };
 
-    // Set initial width to show exactly 4 cards
     carousel.style.width = `${visibleWidth}px`;
     carousel.style.margin = '0 auto';
 
@@ -145,15 +145,11 @@ export default function Home() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Change these passwords as needed in the future
+    // Passwords remain unchanged
     const employeePassword = 'admin123';
-    // BE Password
     const bePassword = 'admin123';
-    // DSE Password
     const dsePassword = 'admin123';
-    // Leaderboard Password
     const leaderboardPassword = 'admin123';
-    // Leave Password
     const leavePassword = 'admin123';
 
     if (!selectedRole) {
@@ -199,7 +195,6 @@ export default function Home() {
 
   // Handle Samwadh PDF download
   const handleSamwadhDownload = () => {
-    // Replace this URL with your actual PDF URL
     const pdfUrl = '/samwad.pdf';
     const link = document.createElement('a');
     link.href = pdfUrl;
@@ -209,19 +204,18 @@ export default function Home() {
     document.body.removeChild(link);
   };
 
-  // Handle announcement password submission
+  // Announcement logic remains unchanged
   const handleAnnouncementPasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (announcementPassword === 'admin123') {
       setShowAdminControls(true);
       setAnnouncementError('');
-      setAnnouncementPassword(''); // Clear password field
+      setAnnouncementPassword('');
     } else {
       setAnnouncementError('Incorrect password');
     }
   };
 
-  // Handle announcement submission
   const handleAnnouncementSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcementText.trim()) {
@@ -230,7 +224,7 @@ export default function Home() {
     }
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 2); // 2 days from now
+    expiresAt.setDate(expiresAt.getDate() + 2); 
 
     const newAnnouncement = {
       text: announcementText,
@@ -247,7 +241,6 @@ export default function Home() {
     setShowAnnouncementModal(false);
   };
 
-  // Handle announcement deletion
   const handleDeleteAnnouncement = () => {
     setCurrentAnnouncement(null);
     localStorage.removeItem('currentAnnouncement');
@@ -255,33 +248,36 @@ export default function Home() {
     setShowAnnouncementModal(false);
   };
 
+  // Animation variants for modals
+  const backdropVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1 },
+  };
+
+  const modalVariants = {
+    hidden: { opacity: 0, y: 50, scale: 0.95 },
+    visible: { 
+        opacity: 1, 
+        y: 0, 
+        scale: 1,
+        transition: { type: 'spring', stiffness: 400, damping: 25 }
+    },
+    exit: { opacity: 0, y: 30, scale: 0.95 },
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 font-sans">
       <Head>
         <title>SDPL - Premium Logistics & Distribution</title>
         <meta name="description" content="SDPL provides world-class logistics and distribution services across India" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {/* Floating Samwadh Download Button */}
-      <div className="fixed bottom-8 right-8 z-40">
-        <button
-          onClick={handleSamwadhDownload}
-          className="relative px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 animate-pulse"
-        >
-          <span className="relative z-10 flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Samwadh
-          </span>
-          <span className="absolute top-0 left-0 w-full h-full rounded-full bg-gradient-to-r from-yellow-500 to-orange-600 opacity-0 hover:opacity-100 transition-opacity duration-300"></span>
-        </button>
-      </div>
+      {/* FLOATING BUTTON REMOVED as requested */}
 
       {/* Announcement Carousel */}
       {currentAnnouncement && (
-        <div className="fixed top-0 left-0 right-0 bg-blue-600 text-white py-2 z-50 overflow-hidden">
+        <div className="fixed top-0 left-0 right-0 bg-blue-600 text-white py-2 z-[60] overflow-hidden">
           <div className="animate-marquee whitespace-nowrap">
             <span className="mx-4 text-sm font-medium">{currentAnnouncement.text}</span>
             <span className="mx-4 text-sm font-medium">{currentAnnouncement.text}</span>
@@ -293,43 +289,55 @@ export default function Home() {
 
       {/* Admin Icon */}
       <div className="fixed bottom-8 left-8 z-40">
-        <button
+        <motion.button
           onClick={() => setShowAnnouncementModal(true)}
           className="p-3 bg-gray-800 text-white rounded-full hover:bg-gray-700 transition-colors shadow-lg"
           title="Admin Panel"
+          whileHover={{ scale: 1.1, rotate: 15 }}
+          whileTap={{ scale: 0.9 }}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-        </button>
+        </motion.button>
       </div>
 
-      {/* Announcement Password Modal */}
-      {showAnnouncementModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Admin Access</h3>
-              <button 
-                onClick={() => {
-                  setShowAnnouncementModal(false);
-                  setAnnouncementPassword('');
-                  setAnnouncementError('');
-                  setShowAdminControls(false);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {!showAdminControls ? (
+      {/* Animated Admin Modal */}
+      <AnimatePresence>
+        {showAnnouncementModal && (
+          <motion.div
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4"
+            variants={backdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+          >
+            <motion.div 
+              className="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl"
+              variants={modalVariants}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-800">Admin Access</h3>
+                <button 
+                  onClick={() => {
+                    setShowAnnouncementModal(false);
+                    setAnnouncementPassword('');
+                    setAnnouncementError('');
+                    setShowAdminControls(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-700 transition-colors"
+                >
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Rest of the modal content, functionality is identical */}
+              {!showAdminControls ? (
               <form onSubmit={handleAnnouncementPasswordSubmit}>
                 <div className="mb-4">
-                  <label htmlFor="announcementPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="announcementPassword" className="block text-sm font-medium text-gray-700 mb-2">
                     Enter Admin Password
                   </label>
                   <input
@@ -337,18 +345,20 @@ export default function Home() {
                     id="announcementPassword"
                     value={announcementPassword}
                     onChange={(e) => setAnnouncementPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
                     placeholder="Enter password"
                     required
                   />
-                  {announcementError && <p className="mt-1 text-sm text-red-600">{announcementError}</p>}
+                  {announcementError && <p className="mt-2 text-sm text-red-600">{announcementError}</p>}
                 </div>
-                <button
+                <motion.button
                   type="submit"
-                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                  className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-semibold"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Submit
-                </button>
+                </motion.button>
               </form>
             ) : (
               <div>
@@ -375,284 +385,295 @@ export default function Home() {
                     required
                   />
                   <div className="mt-2 flex space-x-2">
-                    <button
+                    <motion.button
                       type="submit"
                       className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                       whileHover={{ scale: 1.03 }}
+                       whileTap={{ scale: 0.98 }}
                     >
                       {currentAnnouncement ? 'Update' : 'Create'}
-                    </button>
+                    </motion.button>
                   </div>
                 </form>
 
                 {currentAnnouncement && (
-                  <button
+                  <motion.button
                     onClick={handleDeleteAnnouncement}
                     className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors"
+                     whileHover={{ scale: 1.03 }}
+                     whileTap={{ scale: 0.98 }}
                   >
                     Delete Announcement
-                  </button>
+                  </motion.button>
                 )}
               </div>
             )}
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Login Modal */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-80 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Employee Portal</h3>
-              <button 
-                onClick={() => {
-                  setShowLoginModal(false);
-                  setPassword('');
-                  setLoginError('');
-                  setSelectedRole(null);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {!selectedRole ? (
-              <div className="space-y-3">
-                <h4 className="text-lg font-medium text-gray-800 mb-3">Select your role:</h4>
-                
-                {/* BE (Backend) Option */}
-                <button
-                  onClick={() => setSelectedRole('employee')}
-                  className="w-full px-4 py-3 bg-red-100 text-blue-800 rounded-lg hover:bg-red-200 transition-colors text-left"
+      {/* Animated Login Modal */}
+      <AnimatePresence>
+        {showLoginModal && (
+          <motion.div
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] p-4"
+            variants={backdropVariants}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+          >
+            <motion.div
+              className="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl"
+              variants={modalVariants}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-800">Employee Portal</h3>
+                <button 
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    setPassword('');
+                    setLoginError('');
+                    setSelectedRole(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-700 transition-colors"
                 >
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                    </svg>
-                    <span>Go To Employee </span>
-                  </div>
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
-                {/* Leave Option */}
-                <button
-                  onClick={() => setSelectedRole('leave')}
-                  className="w-full px-4 py-3 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-200 transition-colors text-left"
-                >
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Go To Leave Portal</span>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setSelectedRole('be')}
-                  className="w-full px-4 py-3 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-left"
-                >
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                    </svg>
-                    <span>Go To BE (Demo)</span>
-                  </div>
-                </button>
-
-                {/* DSE (Direct Sales Executive) Option */}
-                <button
-                  onClick={() => setSelectedRole('dse')}
-                  className="w-full px-4 py-3 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors text-left"
-                >
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                    <span>Go To DSE (Demo)</span>
-                  </div>
-                </button>
-
-                {/* Leaderboard Option */}
-                <button
-                  onClick={() => setSelectedRole('leaderboard')}
-                  className="w-full px-4 py-3 bg-yellow-100 text-yellow-800 rounded-lg hover:bg-yellow-200 transition-colors text-left"
-                >
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span>Go To Leaderboard (Demo)</span>
-                  </div>
-                </button>
-
-                
               </div>
-            ) : (
-              <form onSubmit={handleLogin}>
-                <div className="mb-4">
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Enter Password for {selectedRole.toUpperCase()} Access
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter password"
-                    required
-                  />
-                  {loginError && <p className="mt-1 text-sm text-red-600">{loginError}</p>}
+
+              {!selectedRole ? (
+                <div className="space-y-3">
+                  <h4 className="text-lg font-medium text-gray-800 mb-3">Select your role:</h4>
+                  {[
+                    { role: 'employee', label: 'Go To Employee', icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01', color: 'red' },
+                    { role: 'leave', label: 'Go To Leave Portal', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', color: 'purple' },
+                    { role: 'be', label: 'Go To BE (Demo)', icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01', color: 'blue' },
+                    { role: 'dse', label: 'Go To DSE (Demo)', icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z', color: 'green' },
+                    { role: 'leaderboard', label: 'Go To Leaderboard (Demo)', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', color: 'yellow' },
+                  ].map(item => (
+                    <motion.button
+                      key={item.role}
+                      onClick={() => setSelectedRole(item.role)}
+                      className={`w-full px-4 py-3 bg-${item.color}-100 text-${item.color}-800 rounded-lg transition-colors text-left flex items-center`}
+                      whileHover={{ scale: 1.03, backgroundColor: `var(--color-${item.color}-200)` }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <svg className="w-5 h-5 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                      </svg>
+                      <span className='font-medium'>{item.label}</span>
+                    </motion.button>
+                  ))}
                 </div>
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Login
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+              ) : (
+                <form onSubmit={handleLogin}>
+                  <div className="mb-4">
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                      Enter Password for {selectedRole.toUpperCase()} Access
+                    </label>
+                    <input
+                      type="password"
+                      id="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
+                      placeholder="Enter password"
+                      required
+                      autoFocus
+                    />
+                    {loginError && <p className="mt-2 text-sm text-red-600">{loginError}</p>}
+                  </div>
+                  <motion.button
+                    type="submit"
+                    className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg font-semibold"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Login
+                  </motion.button>
+                </form>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Animated Navbar */}
-      <header className={`fixed w-full z-50 transition-all duration-500 ${isScrolled ? 'bg-white shadow-lg py-2' : 'bg-transparent py-4'}`}>
+      <motion.header 
+        className={`fixed w-full z-50 transition-shadow duration-300`}
+        animate={{
+          backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0)',
+          backdropFilter: isScrolled ? 'blur(10px)' : 'blur(0px)',
+          boxShadow: isScrolled ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' : 'none',
+          paddingTop: isScrolled ? '0.5rem' : '1rem',
+          paddingBottom: isScrolled ? '0.5rem' : '1rem',
+        }}
+        transition={{ duration: 0.3 }}
+      >
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
-            {/* Logo - Multi-colored SDPL */}
+            {/* Logo */}
             <div className="flex items-center">
-              <div className="flex items-center">
                 <span className="text-3xl font-bold">
-                  <span className="text-blue-600">S</span>
-                  <span className="text-yellow-500">D</span>
-                  <span className="text-black">P</span>
-                  <span className="text-red-600">L</span>
+                  <span className="text-blue-600">S</span><span className="text-yellow-500">D</span><span className="text-black">P</span><span className="text-red-600">L</span>
                 </span>
-              </div>
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-8">
-              {['home', 'about', 'branches', 'team', 'contact'].map((item) => (
-                <a
+            <nav className="hidden md:flex items-center space-x-2">
+              {['home', 'about', 'branches', 'teams'].map((item) => (
+                <motion.a
                   key={item}
                   href={`#${item}`}
-                  className={`relative px-1 py-2 text-sm font-medium transition-all duration-300 ${activeSection === item ? 'text-blue-600' : 'text-gray-700 hover:text-blue-500'}`}
+                  className={`relative px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === item ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'}`}
                   onClick={() => setActiveSection(item)}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ y: 0 }}
                 >
                   {item.charAt(0).toUpperCase() + item.slice(1)}
                   {activeSection === item && (
-                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 transition-all duration-300"></span>
+                    <motion.span
+                      className="absolute bottom-[-2px] left-0 w-full h-0.5 bg-blue-600 rounded-full"
+                      layoutId="underline"
+                      initial={false}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
                   )}
-                </a>
+                </motion.a>
               ))}
-              <button
+               {/* NEW SAMWADH BUTTON */}
+              <motion.button
+                onClick={handleSamwadhDownload}
+                className="relative px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 rounded-md transition-colors"
+                whileHover={{ y: -2 }} whileTap={{ y: 0 }}
+              >
+                Samwadh
+              </motion.button>
+              <motion.a
+                  href="#contact"
+                  className={`relative px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeSection === 'contact' ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'}`}
+                  onClick={() => setActiveSection('contact')}
+                  whileHover={{ y: -2 }} whileTap={{ y: 0 }}
+                >
+                  Contact
+                  {activeSection === 'contact' && (
+                    <motion.span
+                      className="absolute bottom-[-2px] left-0 w-full h-0.5 bg-blue-600 rounded-full"
+                      layoutId="underline"
+                    />
+                  )}
+                </motion.a>
+              <motion.button
                 onClick={() => setShowLoginModal(true)}
-                className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                className="ml-4 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg"
+                whileHover={{ scale: 1.05, backgroundColor: '#2563EB' }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
               >
                 Employee Login
-              </button>
+              </motion.button>
             </nav>
 
             {/* Mobile Menu Button */}
-            <button
-              className="md:hidden focus:outline-none"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {isMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
+            <button className="md:hidden focus:outline-none" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              {/* Animated icon can be added here later */}
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} /></svg>
             </button>
           </div>
 
           {/* Mobile Navigation */}
+          <AnimatePresence>
           {isMenuOpen && (
-            <div className="md:hidden mt-4 pb-4">
-              <div className="flex flex-col space-y-3">
-                {['home', 'about', 'branches',  'team', 'contact'].map((item) => (
-                  <a
-                    key={item}
-                    href={`#${item}`}
-                    className={`px-3 py-2 rounded-md text-base font-medium ${activeSection === item ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setActiveSection(item);
-                      setIsMenuOpen(false);
-                    }}
-                  >
+            <motion.div 
+              className="md:hidden mt-4 pb-4 overflow-hidden"
+              initial={{ height: 0 }}
+              animate={{ height: 'auto' }}
+              exit={{ height: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+              <div className="flex flex-col space-y-2">
+                {['home', 'about', 'branches',  'teams', 'contact'].map((item) => (
+                  <a key={item} href={`#${item}`} className={`px-3 py-2 rounded-md text-base font-medium ${activeSection === item ? 'bg-blue-100 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`} onClick={() => { setActiveSection(item); setIsMenuOpen(false); }}>
                     {item.charAt(0).toUpperCase() + item.slice(1)}
                   </a>
                 ))}
-                <button
-                  onClick={() => {
-                    setShowLoginModal(true);
-                    setIsMenuOpen(false);
-                  }}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-left"
-                >
+                 <button onClick={() => { handleSamwadhDownload(); setIsMenuOpen(false); }} className="px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 text-left">Samwadh</button>
+                <button onClick={() => { setShowLoginModal(true); setIsMenuOpen(false); }} className="mt-2 px-3 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-left font-semibold">
                   Employee Login
                 </button>
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
         </div>
-      </header>
+      </motion.header>
 
       <main>
-        {/* Hero Section */}
-        <section id="home" className={`pt-32 pb-20 px-4 bg-gradient-to-r from-blue-50 to-gray-100 ${currentAnnouncement ? 'mt-8' : ''}`}>
-          <div className="container mx-auto text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+        {/* Animated Hero Section */}
+        <motion.section 
+          id="home" 
+          className={`relative pt-40 pb-24 px-4 overflow-hidden animated-gradient ${currentAnnouncement ? 'mt-8' : ''}`}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ staggerChildren: 0.2 }}
+        >
+          <div className="container mx-auto text-center relative z-10">
+            <motion.h1 
+              className="text-4xl md:text-6xl font-extrabold text-gray-900 mb-6"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6 } } }}
+            >
               <span className="text-blue-600">Society</span> <span className="text-yellow-400">Distributor</span> <span className="text-black">Private</span> <span className="text-red-400">Limited</span> 
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto mb-10">
+            </motion.h1>
+            <motion.p 
+              className="text-xl md:text-2xl text-gray-700 max-w-3xl mx-auto mb-10"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.2 } } }}
+            >
               Delivering excellence in distribution and supply chain management across UP
-            </p>
-            <div className="flex justify-center space-x-4">
-              <a 
+            </motion.p>
+            <motion.div 
+              className="flex justify-center space-x-4"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.4 } } }}
+            >
+              <motion.a 
                 href="#contact" 
-                className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-shadow"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
               >
                 Contact Us
-              </a>
-              <a 
+              </motion.a>
+              <motion.a 
                 href="#about" 
-                className="px-6 py-3 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                className="px-8 py-3 border-2 border-blue-600 text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors"
+                 whileHover={{ scale: 1.05 }}
+                 whileTap={{ scale: 0.95 }}
+                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
               >
                 Learn More
-              </a>
-            </div>
+              </motion.a>
+            </motion.div>
           </div>
-        </section>
+        </motion.section>
 
-        {/* Clients Grid Section */}
+        {/* Existing Components - Functionality is preserved */}
         <Partners/>
-
-        {/* About Us Section */}
         <About/>
-
-        {/* Team Section */}
-       <TeamSection/>
-
-        {/* Branches Section */} 
+        <TeamSection/>
         <BranchesSection/>
-
-        {/* Contact Section */}
         <Contact />
       </main>
 
-      {/* Footer */}
       <Footer />
     </div>
   );
 }
 
-// Add this to your global CSS or in a style tag
+// Global styles for animations like the marquee and new hero background
 const styles = `
   @keyframes marquee {
     0% { transform: translateX(0); }
@@ -662,9 +683,26 @@ const styles = `
     display: inline-block;
     animation: marquee 20s linear infinite;
   }
+  .animated-gradient {
+    background: linear-gradient(-45deg, #e0f2fe, #f3f4f6, #fefce8, #dbeafe);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+  }
+  @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+  }
+  /* For cleaner modal button colors */
+  :root {
+    --color-red-200: #fee2e2;
+    --color-purple-200: #f3e8ff;
+    --color-blue-200: #dbeafe;
+    --color-green-200: #d1fae5;
+    --color-yellow-200: #fef9c3;
+  }
 `;
 
-// Add the styles to the head
 if (typeof document !== 'undefined') {
   const styleElement = document.createElement('style');
   styleElement.innerHTML = styles;

@@ -1,7 +1,7 @@
 "use client"
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
@@ -20,38 +20,32 @@ const supabase: SupabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Define a type for employee data
 interface EmployeeData {
   id: string;
   dse_name: string;
   branch: string;
   dse_type: string;
-  [key: string]: string | number; // For dynamic date and reason columns
+  [key: string]: string | number;
 }
 
-// Utility function to format employee names
+interface ProcessedEmployeeData extends EmployeeData {
+  leavesThisMonth: number;
+  totalLeaves: number;
+}
+
+
 const formatEmployeeName = (name: string): string => {
   if (!name) return 'Unknown';
-
-  // Remove S_ prefix if present
   let formatted = name.startsWith('S_') ? name.substring(2) : name;
-
-  // Remove everything after the last dot (phone number)
   const lastDotIndex = formatted.lastIndexOf('.');
   if (lastDotIndex > 0) {
     formatted = formatted.substring(0, lastDotIndex);
   }
-
-  // Remove any remaining numbers at the end
-  formatted = formatted.replace(/\d+$/, '');
-
-  return formatted.trim();
+  return formatted.replace(/\d+$/, '').trim();
 };
 
-// Function to calculate total leaves for an employee
 const calculateTotalLeaves = (employee: EmployeeData): number => {
   return Object.keys(employee).reduce((count, key) => {
-    // Check if the key is a date column (not a reason column) and value is 'L'
     if (!key.includes('_reason') && employee[key] === 'L') {
       return count + 1;
     }
@@ -59,10 +53,8 @@ const calculateTotalLeaves = (employee: EmployeeData): number => {
   }, 0);
 };
 
-// Function to get leave details for an employee
 const getLeaveDetails = (employee: EmployeeData): { date: string; reason: string }[] => {
   const leaves: { date: string; reason: string }[] = [];
-
   Object.keys(employee).forEach(key => {
     if (!key.includes('_reason') && employee[key] === 'L') {
       const reasonKey = `${key}_reason`;
@@ -72,8 +64,6 @@ const getLeaveDetails = (employee: EmployeeData): { date: string; reason: string
       });
     }
   });
-
-  // Sort by date (newest first)
   return leaves.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
@@ -96,59 +86,85 @@ export default function LeaveDashboard() {
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
 
-  // Filter data based on search and filters
-  const filteredData = attendanceData.filter((dse) => {
-    const matchesSearch = formatEmployeeName(dse.dse_name).toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBranch = filterBranch ? dse.branch === filterBranch : true;
-    const matchesType = filterType ? dse.dse_type === filterType : true;
-    return matchesSearch && matchesBranch && matchesType;
-  });
+  // New state for filters
+  const [showHighLeaveFilter, setShowHighLeaveFilter] = useState<boolean>(false);
+  const [employeesOnLeaveToday, setEmployeesOnLeaveToday] = useState<EmployeeData[]>([]);
+  const [showTodayLeaveList, setShowTodayLeaveList] = useState<boolean>(true);
 
-  // Sort by calculated leave count if topLeaveFilter is enabled
-  const displayData = topLeaveFilter
-    ? [...filteredData]
-      .sort((a, b) => calculateTotalLeaves(b) - calculateTotalLeaves(a))
-      .slice(0, 10)
-    : filteredData;
+  const todaysDateKey = useMemo(() => new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: '2-digit'
+  }).replace(/ /g, '-'), []);
 
-  // Calculate statistics based on current month
-  const calculateStatistics = useCallback(() => {
-    const currentMonthData = attendanceData.map(employee => {
-      const leavesThisMonth = getLeaveDetails(employee).filter(leave => {
+  useEffect(() => {
+    if (attendanceData.length > 0) {
+      const onLeave = attendanceData.filter(emp => emp[todaysDateKey] === 'L');
+      setEmployeesOnLeaveToday(onLeave);
+    } else {
+      setEmployeesOnLeaveToday([]);
+    }
+  }, [attendanceData, todaysDateKey]);
+
+  // Memoized data processing for performance
+  const processedData: ProcessedEmployeeData[] = useMemo(() => {
+    return attendanceData.map(employee => {
+      const leaveDetails = getLeaveDetails(employee);
+      const leavesThisMonth = leaveDetails.filter(leave => {
         const leaveDate = new Date(leave.date);
         return leaveDate.getMonth() === currentMonth && leaveDate.getFullYear() === currentYear;
       }).length;
-
+      const totalLeaves = calculateTotalLeaves(employee);
       return {
         ...employee,
-        leavesThisMonth
+        leavesThisMonth,
+        totalLeaves
       };
     });
-
-    const totalEmployees = currentMonthData.length;
-    const totalLeaves = currentMonthData.reduce((sum, dse) => sum + dse.leavesThisMonth, 0);
-    const highLeaveEmployees = currentMonthData.filter((dse) => dse.leavesThisMonth > 3).length;
-    const averageLeaves = totalEmployees > 0 ? (totalLeaves / totalEmployees).toFixed(1) : 0;
-
-    return { totalEmployees, totalLeaves, highLeaveEmployees, averageLeaves };
   }, [attendanceData, currentMonth, currentYear]);
+
+  const filteredData = useMemo(() => {
+    return processedData.filter((dse) => {
+      const matchesSearch = formatEmployeeName(dse.dse_name).toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesBranch = filterBranch ? dse.branch === filterBranch : true;
+      const matchesType = filterType ? dse.dse_type === filterType : true;
+      const matchesHighLeave = showHighLeaveFilter ? dse.leavesThisMonth > 3 : true;
+      return matchesSearch && matchesBranch && matchesType && matchesHighLeave;
+    });
+  }, [processedData, searchTerm, filterBranch, filterType, showHighLeaveFilter]);
+
+  const displayData = useMemo(() => {
+    if (topLeaveFilter) {
+      return [...filteredData]
+        .sort((a, b) => b.totalLeaves - a.totalLeaves)
+        .slice(0, 10);
+    }
+    return filteredData;
+  }, [filteredData, topLeaveFilter]);
+
+  const calculateStatistics = useCallback(() => {
+    const totalEmployees = processedData.length;
+    const totalLeaves = processedData.reduce((sum, dse) => sum + dse.leavesThisMonth, 0);
+    const highLeaveEmployees = processedData.filter((dse) => dse.leavesThisMonth > 3).length;
+    const averageLeaves = totalEmployees > 0 ? (totalLeaves / totalEmployees).toFixed(1) : 0;
+    return { totalEmployees, totalLeaves, highLeaveEmployees, averageLeaves };
+  }, [processedData]);
 
   const { totalEmployees, totalLeaves, highLeaveEmployees, averageLeaves } = calculateStatistics();
 
-  // Prepare chart data
-  const uniqueBranches = [...new Set(attendanceData.map((dse) => dse.branch))];
+  const uniqueBranches = useMemo(() => [...new Set(attendanceData.map((dse) => dse.branch))], [attendanceData]);
 
-  const branchLeaveData = uniqueBranches.map((branch) => ({
+  const branchLeaveData = useMemo(() => uniqueBranches.map((branch) => ({
     name: branch,
-    leaves: attendanceData
+    leaves: processedData
       .filter((dse) => dse.branch === branch)
-      .reduce((sum, dse) => sum + calculateTotalLeaves(dse), 0),
-  }));
+      .reduce((sum, dse) => sum + dse.totalLeaves, 0),
+  })), [uniqueBranches, processedData]);
 
-  const leaveDistributionData = [
-    { name: '0-2 Leaves', value: attendanceData.filter((dse) => calculateTotalLeaves(dse) <= 2).length },
-    { name: '3+ Leaves', value: attendanceData.filter((dse) => calculateTotalLeaves(dse) > 2).length },
-  ];
+  const leaveDistributionData = useMemo(() => [
+    { name: '0-2 Leaves', value: processedData.filter((dse) => dse.totalLeaves <= 2).length },
+    { name: '3+ Leaves', value: processedData.filter((dse) => dse.totalLeaves > 2).length },
+  ], [processedData]);
 
   useEffect(() => {
     fetchAttendanceData();
@@ -172,84 +188,71 @@ export default function LeaveDashboard() {
     }
   };
 
-const checkNotifications = async () => {
-  try {
-    const { data } = await supabase
-      .from('notification_status')
-      .select('employee_id');
+  const checkNotifications = async () => {
+    try {
+      const { data } = await supabase
+        .from('notification_status')
+        .select('employee_id');
 
-    if (data) {
-      const statusMap = data.reduce((acc: Record<string, boolean>, item: { employee_id: string }) => {
-        acc[item.employee_id] = true;
-        return acc;
-      }, {} as Record<string, boolean>);
-
-      setNotificationSent(statusMap);
+      if (data) {
+        const statusMap = data.reduce((acc: Record<string, boolean>, item: { employee_id: string }) => {
+          acc[item.employee_id] = true;
+          return acc;
+        }, {} as Record<string, boolean>);
+        setNotificationSent(statusMap);
+      }
+    } catch (error) {
+      console.error('Error checking notifications:', error);
     }
-  } catch (error) {
-    console.error('Error checking notifications:', error);
-  }
-};
+  };
 
-// Call this in your useEffect
-useEffect(() => {
-  fetchAttendanceData();
-  checkNotifications();
-}, []);
+  const sendLeaveNotification = async (employee: EmployeeData, totalLeaves: number) => {
+    try {
+      const leaveDetails = getLeaveDetails(employee);
+      const emailContent = `
+        <h2>Leave Notification Alert</h2>
+        <p>Employee ${formatEmployeeName(employee.dse_name)} from ${employee.branch} branch has reached ${totalLeaves} leaves this month.</p>
+        <h3>Leave Details:</h3>
+        <ul>
+          ${leaveDetails.map(leave => `
+            <li>
+              <strong>${leave.date}:</strong> ${leave.reason}
+            </li>
+          `).join('')}
+        </ul>
+        <p>Please review this employee's leave pattern.</p>
+      `;
 
- const sendLeaveNotification = async (employee: EmployeeData, totalLeaves: number) => {
-  try {
-    const leaveDetails = getLeaveDetails(employee);
+      const { error } = await supabase
+        .from('leave_notifications')
+        .insert([{
+          employee_id: employee.id,
+          employee_name: formatEmployeeName(employee.dse_name),
+          branch: employee.branch || 'Unknown',
+          total_leaves: totalLeaves,
+          leave_dates: leaveDetails.map(leave => leave.date),
+          leave_reasons: leaveDetails.map(leave => leave.reason),
+          hr_email: 'hr@yourcompany.com',
+          month: currentMonth + 1,
+          year: currentYear
+        }]);
 
-    // Create notification email content
-    const emailContent = `
-      <h2>Leave Notification Alert</h2>
-      <p>Employee ${formatEmployeeName(employee.dse_name)} from ${employee.branch} branch has reached ${totalLeaves} leaves this month.</p>
-      <h3>Leave Details:</h3>
-      <ul>
-        ${leaveDetails.map(leave => `
-          <li>
-            <strong>${leave.date}:</strong> ${leave.reason}
-          </li>
-        `).join('')}
-      </ul>
-      <p>Please review this employee's leave pattern.</p>
-    `;
+      if (error) throw error;
 
-    // Insert notification record
-    const { error } = await supabase
-      .from('leave_notifications')
-      .insert([{
-        employee_id: employee.id,
-        employee_name: formatEmployeeName(employee.dse_name),
-        branch: employee.branch || 'Unknown',
-        total_leaves: totalLeaves,
-        leave_dates: leaveDetails.map(leave => leave.date),
-        leave_reasons: leaveDetails.map(leave => leave.reason),
-        hr_email: 'hr@yourcompany.com',
-        month: currentMonth + 1,
-        year: currentYear
-      }]);
+      const { error: emailError } = await supabase.functions.invoke('send-email', {
+        body: JSON.stringify({
+          to: 'harrshh077@gmail.com',
+          subject: `Leave Alert: ${formatEmployeeName(employee.dse_name)} (${totalLeaves} leaves)`,
+          html: emailContent
+        })
+      });
 
-    if (error) throw error;
-
-    // Send email using Supabase function (requires setting up email service)
-    const { error: emailError } = await supabase.functions.invoke('send-email', {
-      body: JSON.stringify({
-        to: 'harrshh077@gmail.com',
-        subject: `Leave Alert: ${formatEmployeeName(employee.dse_name)} (${totalLeaves} leaves)`,
-        html: emailContent
-      })
-    });
-
-    if (emailError) throw emailError;
-
-    console.log('Notification sent to HR for employee:', employee.dse_name);
-
-  } catch (error) {
-    console.error('Error sending notification:', error);
-  }
-};
+      if (emailError) throw emailError;
+      console.log('Notification sent to HR for employee:', employee.dse_name);
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  };
 
   const handleAddLeave = async () => {
     if (!selectedEmployee || !leaveDate || !leaveReason) {
@@ -257,121 +260,99 @@ useEffect(() => {
       return;
     }
 
-    // Check if the date is today or tomorrow
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
-
     const selectedDate = new Date(leaveDate);
     selectedDate.setHours(0, 0, 0, 0);
 
-    // Allow today or tomorrow only
     if (selectedDate.getTime() !== today.getTime() &&
       selectedDate.getTime() !== tomorrow.getTime()) {
       alert('You can only apply leave for today or tomorrow.');
       return;
     }
 
-    // Confirmation dialog
     const isConfirmed = window.confirm(`Are you sure you want to apply leave for ${formatEmployeeName(selectedEmployee)} on ${leaveDate.toLocaleDateString()}?`);
     if (!isConfirmed) return;
 
     setLoading(true);
 
     try {
-      // Format date to match column name (e.g., "3-Jun-25")
+      // First find the employee by name
+      const { data: employees, error: fetchError } = await supabase
+        .from('dse_attendance')
+        .select('*')
+        .eq('dse_name', selectedEmployee);
+
+      if (fetchError) throw fetchError;
+      if (!employees || employees.length === 0) throw new Error('Employee not found');
+      if (employees.length > 1) throw new Error('Multiple employees found with that name');
+
+      const employee = employees[0];
       const formattedDate = leaveDate.toLocaleDateString('en-GB', {
         day: 'numeric',
         month: 'short',
         year: '2-digit'
       }).replace(/ /g, '-');
-
       const formattedReasonColumn = `${formattedDate}_reason`;
 
-      // First get the current employee data
-      const { data: employeeData, error: fetchError } = await supabase
-        .from('dse_attendance')
-        .select('*')
-        .eq('dse_name', selectedEmployee)
-        .single();
-
-      if (fetchError) throw new Error(fetchError.message);
-      if (!employeeData) throw new Error('Employee not found');
-
-      // Check if leave already exists for this date
-      if ((employeeData as EmployeeData)[formattedDate] === 'L') {
+      if ((employee as EmployeeData)[formattedDate] === 'L') {
         throw new Error('Leave already exists for this date');
       }
 
-      // Update the specific leave date column and reason
       const { error: updateError } = await supabase
         .from('dse_attendance')
         .update({
           [formattedDate]: 'L',
           [formattedReasonColumn]: leaveReason
         })
-        .eq('id', employeeData.id);
+        .eq('id', employee.id);
 
-      if (updateError) throw new Error(updateError.message);
+      if (updateError) throw updateError;
 
-      // Refresh data
       await fetchAttendanceData();
-
-      // Calculate new total leaves for notification check
-      const updatedEmployee: EmployeeData = { ...employeeData as EmployeeData, [formattedDate]: 'L' };
+      const updatedEmployee: EmployeeData = { ...employee as EmployeeData, [formattedDate]: 'L' };
       const newTotalLeave = calculateTotalLeaves(updatedEmployee);
 
-      // Check if we need to send notification (only for current month)
       const isCurrentMonth = leaveDate.getMonth() === currentMonth && leaveDate.getFullYear() === currentYear;
-
-      if (isCurrentMonth && newTotalLeave >= 3 && !notificationSent[employeeData.id]) {
+      if (isCurrentMonth && newTotalLeave >= 3 && !notificationSent[employee.id]) {
         await sendLeaveNotification(updatedEmployee, newTotalLeave);
 
-        // Mark as notified in notification_status table
         await supabase
           .from('notification_status')
           .insert([{
-            employee_id: employeeData.id,
-            employee_name: formatEmployeeName(employeeData.dse_name),
+            employee_id: employee.id,
+            employee_name: formatEmployeeName(employee.dse_name),
             leave_count: newTotalLeave,
             notified_at: new Date().toISOString(),
             month: currentMonth + 1,
             year: currentYear
           }]);
 
-        setNotificationSent(prev => ({ ...prev, [employeeData.id]: true }));
+        setNotificationSent(prev => ({ ...prev, [employee.id]: true }));
       }
 
-      // Show success feedback
       setShowLeaveModal(false);
       setSelectedEmployee('');
       setLeaveDate(new Date());
       setLeaveReason('');
       alert('Leave successfully added!');
-
- } catch (error: unknown) { // Changed 'any' to 'unknown'
+    } catch (error: unknown) {
       console.error('Error adding leave:', error);
-      if (error instanceof Error) {
-        alert(`Failed to add leave: ${error.message}`);
-      } else {
-        alert('Failed to add leave: An unknown error occurred');
-      }
+      alert(`Failed to add leave: ${error instanceof Error ? error.message : 'An unknown error occurred'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const branches = [...new Set(attendanceData.map((dse) => dse.branch))].filter(Boolean);
   const dseTypes = [...new Set(attendanceData.map((dse) => dse.dse_type))].filter(Boolean);
   const employeeNames = [...new Set(attendanceData.map((dse) => dse.dse_name))].filter(Boolean);
 
-  // Toggle employee details expansion
   const toggleEmployeeExpansion = (id: string) => {
     setExpandedEmployee(expandedEmployee === id ? null : id);
   };
 
-  // Month/year navigation
   const handleMonthChange = (months: number) => {
     const newDate = new Date(currentYear, currentMonth + months, 1);
     setCurrentMonth(newDate.getMonth());
@@ -390,7 +371,6 @@ useEffect(() => {
         <h1 className="text-3xl font-bold text-gray-800">Employee Leave Dashboard</h1>
         <p className="text-gray-600">Monitor and analyze employee leave patterns</p>
         
-        {/* Month Navigation */}
         <div className="flex items-center justify-center mt-4 gap-4">
           <button 
             onClick={() => handleMonthChange(-1)}
@@ -414,7 +394,6 @@ useEffect(() => {
           </button>
         </div>
       </motion.div>
-
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -441,7 +420,7 @@ useEffect(() => {
             <FiCalendar className="text-2xl" />
           </div>
           <div>
-            <p className="text-gray-500 text-sm">Total Leaves</p>
+            <p className="text-gray-500 text-sm">Total Leaves This Month</p>
             <h3 className="text-2xl font-bold text-gray-800">{totalLeaves}</h3>
           </div>
         </motion.div>
@@ -475,6 +454,60 @@ useEffect(() => {
         </motion.div>
       </div>
 
+      {/* NEW: Employees on Leave Today */}
+      <motion.div className="mb-8" layout>
+          <div
+              className="flex justify-between items-center cursor-pointer bg-white p-4 rounded-xl shadow-md border border-gray-100 hover:bg-gray-50 transition-colors"
+              onClick={() => setShowTodayLeaveList(!showTodayLeaveList)}
+          >
+              <div className="flex items-center">
+              <FiCalendar className="mr-3 text-xl text-indigo-600" />
+              <h3 className="font-semibold text-lg text-gray-800">
+                  Employees on Leave Today ({employeesOnLeaveToday.length})
+              </h3>
+              </div>
+              <FiChevronDown
+              className={`transform transition-transform duration-300 ${showTodayLeaveList ? 'rotate-180' : ''}`}
+              />
+          </div>
+          <AnimatePresence>
+              {showTodayLeaveList && (
+              <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="overflow-hidden"
+              >
+                  <div className="bg-white border-l border-r border-b border-gray-200 rounded-b-xl p-4 mt-[-1px] shadow-inner-sm">
+                  {employeesOnLeaveToday.length > 0 ? (
+                      <ul className="space-y-3 max-h-60 overflow-y-auto">
+                      {employeesOnLeaveToday.map(employee => (
+                          <li key={employee.id} className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors">
+                          <div className="flex items-center">
+                              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold mr-3 flex-shrink-0">
+                              {formatEmployeeName(employee.dse_name)?.charAt(0) || '?'}
+                              </div>
+                              <div>
+                              <p className="font-medium text-gray-800">{formatEmployeeName(employee.dse_name)}</p>
+                              <p className="text-sm text-gray-500">{employee.branch}</p>
+                              </div>
+                          </div>
+                          <span className="text-xs text-gray-700 bg-gray-200 px-2 py-1 rounded-full text-right ml-4 max-w-[50%] truncate">
+                              {employee[`${todaysDateKey}_reason`] as string || 'No reason specified'}
+                          </span>
+                          </li>
+                      ))}
+                      </ul>
+                  ) : (
+                      <p className="text-center text-gray-500 py-4">No employees are on leave today.</p>
+                  )}
+                  </div>
+              </motion.div>
+              )}
+          </AnimatePresence>
+      </motion.div>
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <motion.div
@@ -483,7 +516,7 @@ useEffect(() => {
           transition={{ delay: 0.2 }}
           className="bg-white p-6 rounded-xl shadow-md border border-gray-100"
         >
-          <h3 className="font-semibold text-lg mb-4 text-gray-800">Leaves by Branch</h3>
+          <h3 className="font-semibold text-lg mb-4 text-gray-800">Leaves by Branch (All Time)</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={branchLeaveData}>
@@ -515,7 +548,7 @@ useEffect(() => {
           transition={{ delay: 0.2 }}
           className="bg-white p-6 rounded-xl shadow-md border border-gray-100"
         >
-          <h3 className="font-semibold text-lg mb-4 text-gray-800">Leave Distribution</h3>
+          <h3 className="font-semibold text-lg mb-4 text-gray-800">Leave Distribution (All Time)</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -582,7 +615,7 @@ useEffect(() => {
               className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
             >
               <option value="">All Branches</option>
-              {branches.map((branch) => (
+              {uniqueBranches.map((branch) => (
                 <option key={branch} value={branch}>
                   {branch}
                 </option>
@@ -620,8 +653,8 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Feature 1: Top Leave Filter Toggle */}
-      <div className="flex items-center mb-6 gap-4">
+      {/* Advanced Filters & Actions */}
+      <div className="flex flex-wrap items-center mb-6 gap-4">
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -645,8 +678,22 @@ useEffect(() => {
           )}
         </motion.button>
         
-        {/* Feature 2: Add Leave Button */}
-          <motion.button
+        {/* NEW: Filter for >3 leaves */}
+        <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowHighLeaveFilter(!showHighLeaveFilter)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-md ${
+                showHighLeaveFilter 
+                ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white' 
+                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+        >
+            <FiAlertCircle />
+            <span>{showHighLeaveFilter ? '' : 'More Than 3 Leaves'}</span>
+        </motion.button>
+
+        <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setShowLeaveModal(true)}
@@ -657,7 +704,7 @@ useEffect(() => {
         </motion.button>
       </div>
 
-      {/* Feature 2: Add Leave Modal */}
+      {/* Add Leave Modal */}
       <AnimatePresence>
         {showLeaveModal && (
           <motion.div
@@ -724,19 +771,19 @@ useEffect(() => {
                       whileFocus={{ boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.5)" }}
                       className="relative"
                     >
-                     <DatePicker
-  selected={leaveDate}
-  onChange={(date: Date | null) => setLeaveDate(date)}
-  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-  dateFormat="dd-MMM-yy"
-  minDate={new Date()} // Today is the minimum date
-  maxDate={new Date(new Date().setDate(new Date().getDate() + 1))} // Tomorrow is the maximum date
-  includeDates={[
-    new Date(), // Today
-    new Date(new Date().setDate(new Date().getDate() + 1)) // Tomorrow
-  ]}
-  required
-/>
+                      <DatePicker
+                        selected={leaveDate}
+                        onChange={(date: Date | null) => setLeaveDate(date)}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        dateFormat="dd-MMM-yy"
+                        minDate={new Date()}
+                        maxDate={new Date(new Date().setDate(new Date().getDate() + 1))}
+                        includeDates={[
+                          new Date(),
+                          new Date(new Date().setDate(new Date().getDate() + 1))
+                        ]}
+                        required
+                      />
                       <FiCalendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </motion.div>
                   </div>
@@ -850,7 +897,7 @@ useEffect(() => {
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-gray-500 text-sm">Total Leaves</p>
-                      <p className="text-xl font-semibold">{selectedDSE.total_leave || 0}</p>
+                      <p className="text-xl font-semibold">{calculateTotalLeaves(selectedDSE) || 0}</p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-gray-500 text-sm">CT</p>
@@ -869,19 +916,14 @@ useEffect(() => {
                   <div>
                     <h4 className="font-medium text-gray-700 mb-3">Recent Leaves with Reasons</h4>
                     <div className="space-y-2">
-                      {Object.entries(selectedDSE)
-                        .filter(([value]) => typeof value === 'string' && value.toUpperCase() === 'L')
+                      {getLeaveDetails(selectedDSE)
                         .slice(0, 5)
-                        .map(([date]) => {
-                          const reasonKey = `${date}_reason`;
-                          const reason = selectedDSE[reasonKey] || 'No reason provided';
-                          return (
-                            <div key={date} className="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded">
-                              <div className="font-medium">{date}</div>
-                              <div className="text-gray-600">{reason}</div>
-                            </div>
-                          );
-                        })}
+                        .map((leave) => (
+                          <div key={leave.date} className="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded">
+                            <div className="font-medium">{leave.date}</div>
+                            <div className="text-gray-600">{leave.reason}</div>
+                          </div>
+                        ))}
                     </div>
                   </div>
 
@@ -899,21 +941,21 @@ useEffect(() => {
                     </div>
                   </div>
 
-            {(Number(selectedDSE.total_leave) || 0) > 3 && (
-  <div className="mt-6 p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 flex items-start">
-    <FiAlertCircle className="mt-1 mr-2 flex-shrink-0" />
-    <div>
-      <p className="font-medium">High Leave Alert</p>
-      <p className="text-sm">This employee has exceeded 3 leaves. Notification has been sent to HR.</p>
-    </div>
-  </div>
-)}
-</motion.div>
-</motion.div>
-)}
+                  {(calculateTotalLeaves(selectedDSE) || 0) > 3 && (
+                    <div className="mt-6 p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 flex items-start">
+                      <FiAlertCircle className="mt-1 mr-2 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">High Leave Alert</p>
+                        <p className="text-sm">This employee has a high number of total leaves. Review may be needed.</p>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </motion.div>
+            )}
           </AnimatePresence>
 
-           <div
+          <div
             ref={parent}
             className={`${
               viewMode === 'grid'
@@ -922,13 +964,9 @@ useEffect(() => {
             }`}
           >
             {displayData.map((dse) => {
-              const totalLeaves = calculateTotalLeaves(dse);
+              const { totalLeaves, leavesThisMonth } = dse;
               const leaveDetails = getLeaveDetails(dse);
-              const leavesThisMonth = leaveDetails.filter(leave => {
-                const leaveDate = new Date(leave.date);
-                return leaveDate.getMonth() === currentMonth && leaveDate.getFullYear() === currentYear;
-              }).length;
-
+              
               return (
                 <motion.div
                   key={dse.id}
@@ -951,7 +989,7 @@ useEffect(() => {
                         {formatEmployeeName(dse.dse_name)?.charAt(0) || '?'}
                       </div>
                       <div
-                        className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 border-white ${
                           leavesThisMonth > 3
                             ? 'bg-red-500 text-white'
                             : 'bg-green-500 text-white'
@@ -1008,15 +1046,15 @@ useEffect(() => {
                       <div className="ml-8 grid grid-cols-3 gap-8">
                         <div className="text-center">
                           <p className="text-gray-500 text-sm">Total Leaves</p>
-                          <p className="font-medium">{totalLeaves}</p>
+                          <p className="font-medium text-lg">{totalLeaves}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-gray-500 text-sm">This Month</p>
-                          <p className="font-medium">{leavesThisMonth}</p>
+                          <p className="font-medium text-lg">{leavesThisMonth}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-gray-500 text-sm">Last Leave</p>
-                          <p className="font-medium">
+                          <p className="font-medium text-lg">
                             {leaveDetails.length > 0 
                               ? new Date(leaveDetails[0].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
                               : 'None'}
@@ -1038,12 +1076,12 @@ useEffect(() => {
                         <div className="border-t border-gray-200 pt-4">
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Recent Leaves</h4>
                           <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {leaveDetails.slice(0, 5).map((leave) => (
+                            {leaveDetails.length > 0 ? leaveDetails.slice(0, 5).map((leave) => (
                               <div key={leave.date} className="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded">
                                 <div className="font-medium">{leave.date}</div>
                                 <div className="text-gray-600">{leave.reason}</div>
                               </div>
-                            ))}
+                            )) : <p className='text-xs text-gray-500'>No leave history found.</p>}
                           </div>
                           {leavesThisMonth > 3 && (
                             <div className="mt-3 flex items-center text-sm text-red-600">

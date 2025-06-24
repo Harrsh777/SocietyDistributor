@@ -175,14 +175,7 @@ const BranchesSection = () => {
       email: '',
       pin: '209865'
     },
-    {
-      name: 'KHAGA BRANCH',
-      address: 'MANU KA PURWA KHAGA, DIS.- FATEHPUR',
-      manager: 'MR. SHUBHAM KUMAR GUPTA',
-      phone: '6392751515',
-      email: '',
-      pin: '215655'
-    }
+
   ];
 
 const filteredBranches = branches.filter(branch =>
