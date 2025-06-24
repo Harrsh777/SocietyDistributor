@@ -104,7 +104,7 @@ export default function TeamCarousel() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2, ease: 'easeOut' }}
           >
-            The talented professionals driving our company's success forward.
+            The talented professionals driving our company&apos;s success forward.
           </motion.p>
         </div>
 
