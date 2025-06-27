@@ -267,7 +267,7 @@ export default function EmployeeProfile() {
               </svg>
             </div>
             <h3 className="text-xl font-medium text-gray-900 mb-2">Employee not found</h3>
-            <p className="text-gray-600 mb-6">The employee you&apos;re looking for doesn&apos;t exist or may have been removed.</p>
+            <p className="text-gray-600 mb-6">The employee you are looking for does not exist or may have been removed.</p>
             <Link href="/employe" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
               Back to Directory
             </Link>
@@ -634,7 +634,7 @@ export default function EmployeeProfile() {
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">About</h3>
                         <p className="text-gray-700">
                           {employee.employee_name || 'This employee'} is a {employee.designation?.toLowerCase() || 'professional'} at {employee.branch || 'our company'} branch.
-                          Joined on {formatDate(employee.date_of_joining)}, they have been contributing to the organization&apos;s success.
+                          Joined on {formatDate(employee.date_of_joining)}, they have been contributing to the organizations success.
                           {employee.qualification ? ` Qualified with ${employee.qualification},` : ''} they bring valuable skills to the team.
                         </p>
                       </div>

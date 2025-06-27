@@ -271,6 +271,7 @@ export default function Home() {
         <title>SDPL - Premium Logistics & Distribution</title>
         <meta name="description" content="SDPL provides world-class logistics and distribution services across India" />
         <link rel="icon" href="/favicon.ico" />
+         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
 
       {/* FLOATING BUTTON REMOVED as requested */}
@@ -502,7 +503,8 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Animated Navbar */}
-      <motion.header 
+      {/* Animated Navbar */}
+      <motion.header
         className={`fixed w-full z-50 transition-shadow duration-300`}
         animate={{
           backgroundColor: isScrolled ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0)',
@@ -513,6 +515,17 @@ export default function Home() {
         }}
         transition={{ duration: 0.3 }}
       >
+         {/* Announcement Carousel */}
+      {currentAnnouncement && (
+        <div className="bg-blue-600 text-white py-2 z-[60] overflow-hidden">
+          <div className="animate-marquee whitespace-nowrap">
+            <span className="mx-4 text-sm font-medium">{currentAnnouncement.text}</span>
+            <span className="mx-4 text-sm font-medium">{currentAnnouncement.text}</span>
+            <span className="mx-4 text-sm font-medium">{currentAnnouncement.text}</span>
+            <span className="mx-4 text-sm font-medium">{currentAnnouncement.text}</span>
+          </div>
+        </div>
+      )}
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             {/* Logo */}
@@ -587,8 +600,8 @@ export default function Home() {
           {/* Mobile Navigation */}
           <AnimatePresence>
           {isMenuOpen && (
-            <motion.div 
-              className="md:hidden mt-4 pb-4 overflow-hidden"
+            <motion.div
+              className="md:hidden mt-0 pb-4 overflow-hidden absolute top-full left-0 w-full bg-white shadow-md z-[100]"
               initial={{ height: 0 }}
               animate={{ height: 'auto' }}
               exit={{ height: 0 }}

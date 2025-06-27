@@ -204,7 +204,7 @@ const filteredBranches = branches.filter(branch =>
           <h2 className="text-3xl font-bold text-gray-800 mb-3">Our Branches & Managers</h2>
           <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-blue-300 mx-auto mb-4 rounded-full"></div>
           <p className="text-gray-600 max-w-2xl mx-auto text-sm">
-            With an extensive network across Uttar Pradesh, we&apos;re always nearby to serve you
+            With an extensive network across Uttar Pradesh, we are always nearby to serve you
           </p>
         </motion.div>
 

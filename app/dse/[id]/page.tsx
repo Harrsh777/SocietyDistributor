@@ -117,7 +117,7 @@ export default function DSEDetailPage() {
       const key = `${prefix}_${month.toLowerCase()}_${year}`
       const value = parseFloat(dse?.[key] as string || '0') || 0
       return {
-        month: `${month} &apos;${String(year).slice(-2)}`,
+        month: `${month} ${String(year).slice(-2)}`,
         value,
         rawValue: dse?.[key] as string || '0'
       }
@@ -515,7 +515,7 @@ const chartOptions: ChartOptions = {
               </svg>
             </div>
             <h3 className="text-xl font-medium text-gray-900 mb-2">DSE not found</h3>
-            <p className="text-gray-600 mb-6">The DSE you&apos;re looking for doesn&apos;t exist or may have been removed.</p>
+            <p className="text-gray-600 mb-6">The DSE you are looking for does not exist or may have been removed.</p>
             <Link href="/dse" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
               Back to Dashboard
             </Link>
@@ -829,7 +829,7 @@ const chartOptions: ChartOptions = {
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Retailing Performance</h3>
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      Current: {months[currentMonthIndex]} &apos;{String(yearPrefix + (currentMonthIndex >= 6 ? 1 : 0)).slice(-2)}
+                      Current: {months[currentMonthIndex]} {String(yearPrefix + (currentMonthIndex >= 6 ? 1 : 0)).slice(-2)}
                     </span>
                   </div>
                   <div className="h-80">
@@ -872,7 +872,7 @@ const chartOptions: ChartOptions = {
                           const yearSuffix = monthIndex < 6 ? yearPrefix : yearPrefix + 1
                           return (
                             <th key={monthIndex} scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              {month} &apos;{String(yearSuffix).slice(-2)}
+                              {month} {String(yearSuffix).slice(-2)}
                             </th>
                           )
                         })}
@@ -1081,7 +1081,7 @@ const chartOptions: ChartOptions = {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {months.map((month, i) => {
                       const yearSuffix = i < 6 ? yearPrefix : yearPrefix + 1
-                      const monthKey = `${month} &apos;${String(yearSuffix).slice(-2)}`
+                      const monthKey = `${month} ${String(yearSuffix).slice(-2)}`
                       return (
                         <tr key={monthKey} className={i === currentMonthIndex ? 'bg-blue-50' : ''}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{monthKey}</td>

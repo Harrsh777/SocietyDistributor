@@ -117,7 +117,7 @@ const Contact = () => {
           className="text-center text-gray-400 max-w-2xl mx-auto mb-16 text-lg"
           variants={itemVariants}
         >
-          Have a question or a project in mind? We&apos;d love to hear from you.
+          Have a question or a project in mind? We would love to hear from you.
         </motion.p>
         
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">

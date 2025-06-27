@@ -14,11 +14,11 @@ interface TeamMember {
 const teamMembersData: TeamMember[] = [
     { name: 'Mr. Anuj Agnihotri', role: 'CEO & Founder', image: '/team/anuj-agnihotri.jpg', email: 'anuj@sdlkanpur.com' },
     { name: 'Mr. Neeraj Srivastava', role: 'Operational Manager', image: '/team/neeraj-srivastava.jpg', email: 'om@sdlkanpur.com' },
-    { name: 'Mr. Om P Yadav', role: 'System Administrator', image: '/team/om-yadav.jpg', email: 'sysadmin@sdlkanpur.com' },
-    { name: 'Mr. Raj Kumar Shukla', role: 'Logistic Executive', image: '/team/raj-shukla.jpg', email: 'dle@sdlkanpur.com' },
+    { name: 'Mr. Om P Yadav', role: 'System Administrator', image: '/sdpl.jpg', email: 'sysadmin@sdlkanpur.com' },
+    { name: 'Mr. Raj Kumar Shukla', role: 'Logistic Executive', image: '/sdpl1.jpg', email: 'dle@sdlkanpur.com' },
     { name: 'Mr. Dheeraj Bajpai', role: 'Human Resource Executive', image: '/team/dheeraj-bajpai.jpg', email: 'dhre@sdlkanpur.com' },
     { name: 'Mr. Pushpendra Pandey', role: 'Finance Executive', image: '/team/pushpendra-pandey.jpg', email: 'dfe@sdlkanpur.com' },
-    { name: 'Mr. Shailesh Gupta', role: 'Sales Manager', image: '/team/shailesh-gupta.jpg', email: 'manager.sales@sdlkanpur.com' },
+    { name: 'Mr. Shailesh Gupta', role: 'Sales Manager', image: '/sd.jpg', email: 'manager.sales@sdlkanpur.com' },
 ];
 
 const TeamMemberCard = ({ member, index }: { member: TeamMember, index: number }) => (
@@ -104,7 +104,7 @@ export default function TeamCarousel() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2, ease: 'easeOut' }}
           >
-            The talented professionals driving our company&apos;s success forward.
+            The talented professionals driving our companies success forward.
           </motion.p>
         </div>
 
