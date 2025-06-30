@@ -42,8 +42,8 @@ const BranchesSection = () => {
     {
       name: 'BHARTHANA BRANCH',
       address: 'NEAR ADITI HOSPITAL, KRISHNA NAGAR, ETAWAH ROAD BHARTHANA',
-      manager: 'MR. ANIS KHAN (BRANCH INCHARGE)',
-      phone: '8601871761',
+      manager: 'Mr. Neetesh Saxena', // Updated
+      phone: '8601871761', // Updated (was already this number, kept for consistency)
       email: '',
       pin: '206242'
     },
@@ -66,16 +66,16 @@ const BranchesSection = () => {
     {
       name: 'FARRUKHABAD BRANCH',
       address: '5/111 LOHIA PURAM, BEHIND DR. S.K. SAXENA CLINIC, FARRUKHABAD',
-      manager: 'MR. NAVNEET FARERA (BRANCH INCHARGE)',
-      phone: '7311186237',
+      manager: 'Mr. Arjun Dixit', // Updated
+      phone: '9236411585', // Updated
       email: '',
       pin: '209625'
     },
     {
       name: 'FATEHPUR BRANCH',
       address: 'NEAR DELHI DARBAR RESTAURANT GT ROAD, ABU NAGAR, (BACK TO SOCIETY MOTORS) FATEHPUR',
-      manager: 'MR. BHANU PRATAP DWIVEDI (BRANCH INCHARGE)',
-      phone: '8601871988',
+      manager: 'Mr. Ashish Kumar Gupta', // Updated
+      phone: '8601871988', // Updated (was already this number, kept for consistency)
       email: '',
       pin: '212601'
     },
@@ -98,8 +98,8 @@ const BranchesSection = () => {
     {
       name: 'KANNAUJ BRANCH',
       address: 'IN FRONT OF NEW S.P. AWAS TIRWA ROAD, KANNAUJ',
-      manager: 'MR. AMAN BAJPAI (BRANCH INCHARGE)',
-      phone: '8601871998',
+      manager: 'Mr. Bhanu Pratap Dwivedi', // Updated
+      phone: '8601871998', // Updated (was already this number, kept for consistency)
       email: '',
       pin: '209726'
     },
@@ -138,8 +138,8 @@ const BranchesSection = () => {
     {
       name: 'NAWABGANJ BRANCH',
       address: 'NEAR BANK OF INDIA, MAIN BAZAR ROAD, NAWABGANJ UNNAO',
-      manager: 'MR. RAKESH SRIVASTAVA (BRANCH INCHARGE)',
-      phone: '8601871993',
+      manager: 'Mr. Anuj Kumar', // Updated
+      phone: '7985277207', // Updated
       email: '',
       pin: '208002'
     },
@@ -154,8 +154,8 @@ const BranchesSection = () => {
     {
       name: 'UNNAO BRANCH',
       address: '471/3 DAYA RAM BAGIYA, NEAR BAL VIDHYA MANDIR INTER COLLAGE, POORAN NAGAR, UNNAO',
-      manager: 'MR. PRADEEP SHARMA (BRANCH INCHARGE)',
-      phone: '7311186240',
+      manager: 'Mr. Sumit Mishra', // Updated
+      phone: '7355747100', // Updated
       email: '',
       pin: '209801'
     },
@@ -178,7 +178,7 @@ const BranchesSection = () => {
 
   ];
 
-const filteredBranches = branches.filter(branch =>
+  const filteredBranches = branches.filter(branch =>
     branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     branch.manager.toLowerCase().includes(searchTerm.toLowerCase()) ||
     branch.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -195,7 +195,7 @@ const filteredBranches = branches.filter(branch =>
   return (
     <section id="branches" className="py-12 bg-gradient-to-b from-gray-50 to-white">
       <div className="container mx-auto px-4 md:px-6">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -209,7 +209,7 @@ const filteredBranches = branches.filter(branch =>
         </motion.div>
 
         {/* Search Bar */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
@@ -247,7 +247,7 @@ const filteredBranches = branches.filter(branch =>
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               whileInView={{ opacity: 1, y: 0, scale: 1 }}
               whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }}
-              transition={{ 
+              transition={{
                 type: "spring",
                 stiffness: 300,
                 damping: 20,
@@ -261,7 +261,7 @@ const filteredBranches = branches.filter(branch =>
               <div className="p-4">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 min-w-0">
-                    <h3 
+                    <h3
                       className="text-sm font-bold text-gray-800 truncate cursor-pointer"
                       onClick={() => toggleExpand(index)}
                     >
@@ -269,7 +269,7 @@ const filteredBranches = branches.filter(branch =>
                     </h3>
                     <p className="text-blue-500 text-xs font-medium truncate mt-0.5">{branch.manager}</p>
                   </div>
-                  <motion.div 
+                  <motion.div
                     whileHover={{ scale: 1.05 }}
                     className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium ml-2 whitespace-nowrap"
                   >
@@ -318,7 +318,7 @@ const filteredBranches = branches.filter(branch =>
                   >
                     {expandedCards[index] ? 'Show Less' : 'More Details'}
                   </motion.button>
-                  
+
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
