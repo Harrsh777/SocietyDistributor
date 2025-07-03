@@ -128,19 +128,19 @@ export default function LeaveDashboard() {
       const matchesSearch = formatEmployeeName(dse.dse_name).toLowerCase().includes(searchTerm.toLowerCase());
       const matchesBranch = filterBranch ? dse.branch === filterBranch : true;
       const matchesType = filterType ? dse.dse_type === filterType : true;
-      const matchesHighLeave = showHighLeaveFilter ? dse.leavesThisMonth > 3 : true;
+      const matchesHighLeave = showHighLeaveFilter ? dse.leavesThisMonth > 2 : true;
       return matchesSearch && matchesBranch && matchesType && matchesHighLeave;
     });
   }, [processedData, searchTerm, filterBranch, filterType, showHighLeaveFilter]);
 
   const displayData = useMemo(() => {
-    if (topLeaveFilter) {
-      return [...filteredData]
-        .sort((a, b) => b.totalLeaves - a.totalLeaves)
-        .slice(0, 10);
-    }
-    return filteredData;
-  }, [filteredData, topLeaveFilter]);
+  if (topLeaveFilter) {
+    return [...filteredData]
+      .sort((a, b) => b.leavesThisMonth - a.leavesThisMonth) // Changed from totalLeaves to leavesThisMonth
+      .slice(0, 10);
+  }
+  return filteredData;
+}, [filteredData, topLeaveFilter]);
 
   const calculateStatistics = useCallback(() => {
     const totalEmployees = processedData.length;
@@ -655,28 +655,28 @@ export default function LeaveDashboard() {
 
       {/* Advanced Filters & Actions */}
       <div className="flex flex-wrap items-center mb-6 gap-4">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setTopLeaveFilter(!topLeaveFilter)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-md ${
-            topLeaveFilter 
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
-              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-          }`}
-        >
-          {topLeaveFilter ? (
-            <>
-              <FiAward className="text-yellow-300" />
-              <span>Showing Top 10</span>
-            </>
-          ) : (
-            <>
-              <FiTrendingUp />
-              <span>Show Top 10</span>
-            </>
-          )}
-        </motion.button>
+      <motion.button
+  whileHover={{ scale: 1.05 }}
+  whileTap={{ scale: 0.95 }}
+  onClick={() => setTopLeaveFilter(!topLeaveFilter)}
+  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-md ${
+    topLeaveFilter 
+      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' 
+      : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+  }`}
+>
+  {topLeaveFilter ? (
+    <>
+      <FiAward className="text-yellow-300" />
+      <span>Showing Top 10 This Month</span> {/* Updated text */}
+    </>
+  ) : (
+    <>
+      <FiTrendingUp />
+      <span>Show Top 10 This Month</span> {/* Updated text */}
+    </>
+  )}
+</motion.button>
         
         {/* NEW: Filter for >3 leaves */}
         <motion.button
@@ -690,7 +690,7 @@ export default function LeaveDashboard() {
             }`}
         >
             <FiAlertCircle />
-            <span>{showHighLeaveFilter ? '' : 'More Than 3 Leaves'}</span>
+            <span>{showHighLeaveFilter ? '' : 'More Than 2 Leaves'}</span>
         </motion.button>
 
         <motion.button
