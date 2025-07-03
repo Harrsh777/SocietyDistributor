@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { createClient } from '@supabase/supabase-js';
@@ -120,32 +120,34 @@ export default function Dashboard() {
   const controls = useAnimation();
 
   // Fetch data
+  
+const fetchData = useCallback(async () => {
+  try {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*');
+    
+    if (error) throw error;
+    
+    if (data) {
+      setEmployees(data);
+      // Assuming generateSummaries is also a function in your component,
+      // it should also be wrapped in useCallback.
+      generateSummaries(data); 
+    }
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    toast.error('Failed to load data');
+  } finally {
+    setLoading(false);
+    controls.start("visible");
+  }
+}, [controls]);
+
 useEffect(() => {
   fetchData();
-}, []);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('employees')
-        .select('*');
-      
-      if (error) throw error;
-      
-      if (data) {
-        setEmployees(data);
-        generateSummaries(data);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-      controls.start("visible");
-    }
-  };
-
+}, [fetchData]);
   // Generate summaries from employee data
   const generateSummaries = (employees: Employee[]) => {
     const branchSummariesMap: { [key: string]: BranchSummary } = {};

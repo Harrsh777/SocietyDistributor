@@ -1,7 +1,7 @@
 "use client"
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { FiDownload, FiMail, FiUser, FiCalendar, FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
@@ -60,7 +60,7 @@ export default function HighLeaveDashboard() {
           if (date.getMonth() === currentMonth) {
             return count + 1
           }
-        } catch (e) {
+        } catch {
           console.error('Error parsing date:', key)
         }
       }
@@ -102,7 +102,7 @@ export default function HighLeaveDashboard() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [fetchData])
 
   // Export to Excel
   const exportToExcel = () => {
@@ -113,7 +113,7 @@ export default function HighLeaveDashboard() {
       'TBE': emp.tbe,
       'BE': emp.be,
       'Leaves This Month': emp.totalLeavesThisMonth,
-      'Today\'s Reason': emp.todayReason
+      'Today&apos;s Reason': emp.todayReason
     }))
 
     const worksheet = XLSX.utils.json_to_sheet(data)
@@ -305,7 +305,7 @@ export default function HighLeaveDashboard() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TBE</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">BE</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leaves</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Today's Reason</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Today&apos;s Reason</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
