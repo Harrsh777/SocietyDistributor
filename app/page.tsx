@@ -194,15 +194,64 @@ export default function Home() {
   };
 
   // Handle Samwadh PDF download
-  const handleSamwadhDownload = () => {
+  const handleSamwadhDownload = async () => {
+  // 1. Download the PDF
+  try {
     const pdfUrl = '/samwad.pdf';
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = 'Samwadh-Magazine.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    const pdfLink = document.createElement('a');
+    pdfLink.href = pdfUrl;
+    pdfLink.download = 'Samwadh.pdf';
+    document.body.appendChild(pdfLink);
+    pdfLink.click();
+    document.body.removeChild(pdfLink);
+  } catch (error) {
+    console.error('PDF download failed:', error);
+    alert('Failed to download PDF. Please check the file exists.');
+    return;
+  }
+
+  // 2. Download images with enhanced handling
+  const imageUrls = [
+    '/samwadh1.jpg',
+    '/samwadh2.jpg', 
+    '/samwadh3.jpg',
+    '/samwadh4.jpg'
+  ];
+
+  // Create a hidden container for downloads
+  const downloadContainer = document.createElement('div');
+  downloadContainer.style.display = 'none';
+  document.body.appendChild(downloadContainer);
+
+  try {
+    for (const [index, url] of imageUrls.entries()) {
+      try {
+        // Create link with unique timestamp to prevent caching
+        const timestamp = Date.now();
+        const imgLink = document.createElement('a');
+        imgLink.href = `${url}?t=${timestamp}`;
+        imgLink.download = `samwadh-image-${index + 1}.jpg`;
+        
+        // Add to container and click
+        downloadContainer.appendChild(imgLink);
+        imgLink.click();
+        
+        // Small delay between downloads
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Clean up
+        downloadContainer.removeChild(imgLink);
+      } catch (error) {
+        console.error(`Failed to download image ${index + 1}:`, error);
+      }
+    }
+  } finally {
+    // Clean up container
+    document.body.removeChild(downloadContainer);
+  }
+
+  alert('Download process completed! Check your downloads folder.');
+};
 
   // Announcement logic remains unchanged
   const handleAnnouncementPasswordSubmit = (e: React.FormEvent) => {
