@@ -662,7 +662,7 @@ export default function Home() {
                     {item.charAt(0).toUpperCase() + item.slice(1)}
                   </a>
                 ))}
-                 <button onClick={() => { handleSamwadhDownload(); setIsMenuOpen(false); }} className="px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 text-left">Samwadh</button>
+                 <button onClick={() => { handleSamwadhDownload(); setIsMenuOpen(false); }} className="px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 text-left">Samvaad</button>
                 <button onClick={() => { setShowLoginModal(true); setIsMenuOpen(false); }} className="mt-2 px-3 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-left font-semibold">
                   Employee Login
                 </button>
