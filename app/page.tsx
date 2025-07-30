@@ -612,7 +612,7 @@ export default function Home() {
                 className="relative px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 rounded-md transition-colors"
                 whileHover={{ y: -2 }} whileTap={{ y: 0 }}
               >
-                Samwadh
+                Samwaad
               </motion.button>
               <motion.a
                   href="#contact"
