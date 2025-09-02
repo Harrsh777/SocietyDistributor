@@ -354,7 +354,7 @@ export default function LeaveDashboard() {
       console.log('Employee ID:', employee.id);
 
       // First, let's check if the column exists by trying to read it
-      const { data: testData, error: testError } = await supabase
+      const { error: testError } = await supabase
         .from('dse_attendance')
         .select(formattedDate)
         .eq('id', employee.id)
