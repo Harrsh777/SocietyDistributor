@@ -12,6 +12,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { formatDateForDB } from '@/lib/utils';
 
 const COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
@@ -53,19 +54,24 @@ const calculateTotalLeaves = (employee: EmployeeData): number => {
   }, 0);
 };
 
-const getLeaveDetails = (employee: EmployeeData): { date: string; reason: string }[] => {
-  const leaves: { date: string; reason: string }[] = [];
-  Object.keys(employee).forEach(key => {
-    if (!key.includes('_reason') && employee[key] === 'L') {
-      const reasonKey = `${key}_reason`;
-      leaves.push({
-        date: key,
-        reason: (employee[reasonKey] as string) || 'No reason provided'
-      });
-    }
-  });
-  return leaves.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-};
+  const getLeaveDetails = (employee: EmployeeData): { date: string; reason: string }[] => {
+    const leaves: { date: string; reason: string }[] = [];
+    Object.keys(employee).forEach(key => {
+      if (!key.includes('_reason') && employee[key] === 'L') {
+        const reasonKey = `${key}_reason`;
+        leaves.push({
+          date: key,
+          reason: (employee[reasonKey] as string) || 'No reason provided'
+        });
+      }
+    });
+    return leaves.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const getEmployeesOnLeaveForDate = (date: Date, data: EmployeeData[]): EmployeeData[] => {
+    const dateKey = formatDateForDB(date);
+    return data.filter((emp: EmployeeData) => emp[dateKey] === 'L');
+  };
 
 export default function LeaveDashboard() {
   const [attendanceData, setAttendanceData] = useState<EmployeeData[]>([]);
@@ -78,27 +84,44 @@ export default function LeaveDashboard() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showLeaveModal, setShowLeaveModal] = useState<boolean>(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
-  const [leaveDate, setLeaveDate] = useState<Date | null>(new Date());
+  const [leaveDate, setLeaveDate] = useState<Date | null>(null);
   const [leaveReason, setLeaveReason] = useState<string>('');
   const [topLeaveFilter, setTopLeaveFilter] = useState<boolean>(false);
   const [notificationSent, setNotificationSent] = useState<Record<string, boolean>>({});
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState<number>(0);
+  const [currentYear, setCurrentYear] = useState<number>(2025);
 
   // New state for filters
   const [showHighLeaveFilter, setShowHighLeaveFilter] = useState<boolean>(false);
   const [employeesOnLeaveToday, setEmployeesOnLeaveToday] = useState<EmployeeData[]>([]);
   const [showTodayLeaveList, setShowTodayLeaveList] = useState<boolean>(true);
+  const [selectedDateForLeave, setSelectedDateForLeave] = useState<Date | null>(null);
+  const [showDateLeaveModal, setShowDateLeaveModal] = useState<boolean>(false);
 
-  const todaysDateKey = useMemo(() => new Date().toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: '2-digit'
-  }).replace(/ /g, '-'), []);
+  const [todaysDateKey, setTodaysDateKey] = useState<string>('');
 
   useEffect(() => {
-    if (attendanceData.length > 0) {
+    // Set to current date or June 1, 2025 if current date is before database range
+    const now = new Date();
+    const dbStartDate = new Date(2025, 5, 1); // June 1, 2025
+    const dbEndDate = new Date(2025, 11, 31); // December 31, 2025
+    
+    let defaultDate;
+    if (now >= dbStartDate && now <= dbEndDate) {
+      defaultDate = now;
+    } else {
+      defaultDate = dbStartDate;
+    }
+    
+    setTodaysDateKey(formatDateForDB(defaultDate));
+    setSelectedDateForLeave(defaultDate);
+    setCurrentMonth(defaultDate.getMonth());
+    setCurrentYear(defaultDate.getFullYear());
+  }, []);
+
+  useEffect(() => {
+    if (attendanceData.length > 0 && todaysDateKey) {
       const onLeave = attendanceData.filter(emp => emp[todaysDateKey] === 'L');
       setEmployeesOnLeaveToday(onLeave);
     } else {
@@ -260,16 +283,30 @@ export default function LeaveDashboard() {
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
     const selectedDate = new Date(leaveDate);
     selectedDate.setHours(0, 0, 0, 0);
+    
+    // Check if the selected date is within the database range
+    const dbStartDate = new Date(2025, 5, 1); // June 1, 2025
+    const dbEndDate = new Date(2025, 11, 31); // December 31, 2025
+    
+    if (selectedDate < dbStartDate || selectedDate > dbEndDate) {
+      alert('Selected date is outside the available date range (June 2025 - December 2025).');
+      return;
+    }
+
+    // Check if the selected date is within allowed range (yesterday, today, tomorrow)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
 
     if (selectedDate.getTime() !== today.getTime() &&
-      selectedDate.getTime() !== tomorrow.getTime()) {
-      alert('You can only apply leave for today or tomorrow.');
+        selectedDate.getTime() !== yesterday.getTime() &&
+        selectedDate.getTime() !== tomorrow.getTime()) {
+      alert('You can only apply leave for yesterday, today, or tomorrow.');
       return;
     }
 
@@ -285,31 +322,58 @@ export default function LeaveDashboard() {
         .select('*')
         .eq('dse_name', selectedEmployee);
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Fetch error:', fetchError);
+        throw new Error(`Failed to find employee: ${fetchError.message}`);
+      }
       if (!employees || employees.length === 0) throw new Error('Employee not found');
       if (employees.length > 1) throw new Error('Multiple employees found with that name');
 
       const employee = employees[0];
-      const formattedDate = leaveDate.toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: '2-digit'
-      }).replace(/ /g, '-');
+      
+      // Format date to match database column format exactly: "02-Sep-25"
+      const formattedDate = formatDateForDB(leaveDate);
       const formattedReasonColumn = `${formattedDate}_reason`;
 
+      console.log('Formatted date:', formattedDate);
+      console.log('Formatted reason column:', formattedReasonColumn);
+      console.log('Available columns in employee data:', Object.keys(employee).filter(key => key.includes('Jun-25') || key.includes('Jul-25')));
+
+      // Check if leave already exists for this date
       if ((employee as EmployeeData)[formattedDate] === 'L') {
         throw new Error('Leave already exists for this date');
       }
 
+      // Update the attendance record
+      const updateData = {
+        [formattedDate]: 'L',
+        [formattedReasonColumn]: leaveReason
+      };
+
+      console.log('Update data:', updateData);
+      console.log('Employee ID:', employee.id);
+
+      // First, let's check if the column exists by trying to read it
+      const { data: testData, error: testError } = await supabase
+        .from('dse_attendance')
+        .select(formattedDate)
+        .eq('id', employee.id)
+        .single();
+
+      if (testError) {
+        console.error('Column test error:', testError);
+        throw new Error(`Column '${formattedDate}' does not exist in database. Available columns: ${Object.keys(employee).filter(key => key.includes('-25')).join(', ')}`);
+      }
+
       const { error: updateError } = await supabase
         .from('dse_attendance')
-        .update({
-          [formattedDate]: 'L',
-          [formattedReasonColumn]: leaveReason
-        })
+        .update(updateData)
         .eq('id', employee.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw new Error(`Failed to update attendance: ${updateError.message}`);
+      }
 
       await fetchAttendanceData();
       const updatedEmployee: EmployeeData = { ...employee as EmployeeData, [formattedDate]: 'L' };
@@ -335,12 +399,13 @@ export default function LeaveDashboard() {
 
       setShowLeaveModal(false);
       setSelectedEmployee('');
-      setLeaveDate(new Date());
+      setLeaveDate(null);
       setLeaveReason('');
       alert('Leave successfully added!');
     } catch (error: unknown) {
       console.error('Error adding leave:', error);
-      alert(`Failed to add leave: ${error instanceof Error ? error.message : 'An unknown error occurred'}`);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      alert(`Failed to add leave: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -355,8 +420,14 @@ export default function LeaveDashboard() {
 
   const handleMonthChange = (months: number) => {
     const newDate = new Date(currentYear, currentMonth + months, 1);
-    setCurrentMonth(newDate.getMonth());
-    setCurrentYear(newDate.getFullYear());
+    const dbStartDate = new Date(2025, 5, 1); // June 1, 2025
+    const dbEndDate = new Date(2025, 11, 31); // December 31, 2025
+    
+    // Ensure we don't go outside the database range
+    if (newDate >= dbStartDate && newDate <= dbEndDate) {
+      setCurrentMonth(newDate.getMonth());
+      setCurrentYear(newDate.getFullYear());
+    }
   };
 
   return (
@@ -386,7 +457,7 @@ export default function LeaveDashboard() {
           <button 
             onClick={() => handleMonthChange(1)}
             className="p-2 rounded-full hover:bg-gray-200 transition-colors"
-            disabled={currentMonth >= new Date().getMonth() && currentYear >= new Date().getFullYear()}
+            disabled={currentMonth >= 11 && currentYear >= 2025} // December 2025 is the last month
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
@@ -696,7 +767,23 @@ export default function LeaveDashboard() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setShowLeaveModal(true)}
+          onClick={() => {
+            setSelectedDateForLeave(new Date(currentYear, currentMonth, 1)); // Current month
+            setShowDateLeaveModal(true);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-colors shadow-md"
+        >
+          <FiCalendar />
+          View Leave by Date
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            setLeaveDate(new Date());
+            setShowLeaveModal(true);
+          }}
           className="ml-auto flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-colors shadow-md"
         >
           <FiPlus />
@@ -724,7 +811,7 @@ export default function LeaveDashboard() {
                 onClick={() => {
                   setShowLeaveModal(false);
                   setSelectedEmployee('');
-                  setLeaveDate(new Date());
+                  setLeaveDate(null);
                   setLeaveReason('');
                 }}
                 className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 transition-colors"
@@ -767,6 +854,7 @@ export default function LeaveDashboard() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Date</label>
+                    <p className="text-xs text-gray-500 mb-2">You can only apply leave for yesterday, today, or tomorrow</p>
                     <motion.div
                       whileFocus={{ boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.5)" }}
                       className="relative"
@@ -776,12 +864,31 @@ export default function LeaveDashboard() {
                         onChange={(date: Date | null) => setLeaveDate(date)}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         dateFormat="dd-MMM-yy"
-                        minDate={new Date()}
-                        maxDate={new Date(new Date().setDate(new Date().getDate() + 1))}
-                        includeDates={[
-                          new Date(),
-                          new Date(new Date().setDate(new Date().getDate() + 1))
-                        ]}
+                        minDate={new Date(2025, 5, 1)} // June 1, 2025
+                        maxDate={new Date(2025, 11, 31)} // December 31, 2025
+                        filterDate={(date) => {
+                          // Only allow dates that exist in the database schema
+                          const month = date.getMonth();
+                          const year = date.getFullYear();
+                          if (year !== 2025 || month < 5 || month > 11) {
+                            return false; // June to December 2025 only
+                          }
+                          
+                          // Only allow yesterday, today, and tomorrow
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const yesterday = new Date(today);
+                          yesterday.setDate(today.getDate() - 1);
+                          const tomorrow = new Date(today);
+                          tomorrow.setDate(today.getDate() + 1);
+                          
+                          const selectedDate = new Date(date);
+                          selectedDate.setHours(0, 0, 0, 0);
+                          
+                          return selectedDate.getTime() === today.getTime() ||
+                                 selectedDate.getTime() === yesterday.getTime() ||
+                                 selectedDate.getTime() === tomorrow.getTime();
+                        }}
                         required
                       />
                       <FiCalendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -808,7 +915,7 @@ export default function LeaveDashboard() {
                     onClick={() => {
                       setShowLeaveModal(false);
                       setSelectedEmployee('');
-                      setLeaveDate(new Date());
+                      setLeaveDate(null);
                       setLeaveReason('');
                     }}
                     className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
@@ -834,6 +941,122 @@ export default function LeaveDashboard() {
                     ) : (
                       "Submit Leave"
                     )}
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* View Leave by Date Modal */}
+      <AnimatePresence>
+        {showDateLeaveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto"
+            >
+              <button 
+                onClick={() => {
+                  setShowDateLeaveModal(false);
+                  setSelectedDateForLeave(null);
+                }}
+                className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <FiX className="text-gray-500 hover:text-gray-700" size={20} />
+              </button>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-1">View Leave by Date</h3>
+                  <p className="text-gray-500">Select a date to see who was on leave</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Select Date</label>
+                  <DatePicker
+                    selected={selectedDateForLeave}
+                    onChange={(date: Date | null) => setSelectedDateForLeave(date)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    dateFormat="dd-MMM-yy"
+                    minDate={new Date(2025, 5, 1)} // June 1, 2025
+                    maxDate={new Date(2025, 11, 31)} // December 31, 2025
+                    filterDate={(date) => {
+                      // Only allow dates that exist in the database schema
+                      const month = date.getMonth();
+                      const year = date.getFullYear();
+                      return year === 2025 && month >= 5 && month <= 11; // June to December 2025
+                    }}
+                    required
+                  />
+                </div>
+
+                {selectedDateForLeave && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-3">
+                      Employees on Leave - {selectedDateForLeave.toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </h4>
+                    <div className="max-h-96 overflow-y-auto">
+                      {getEmployeesOnLeaveForDate(selectedDateForLeave, attendanceData).length > 0 ? (
+                        <div className="space-y-3">
+                          {getEmployeesOnLeaveForDate(selectedDateForLeave, attendanceData).map(employee => {
+                            const dateKey = formatDateForDB(selectedDateForLeave);
+                            const reason = employee[`${dateKey}_reason`] as string || 'No reason specified';
+                            return (
+                              <div key={employee.id} className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors">
+                                <div className="flex items-center">
+                                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold mr-3 flex-shrink-0">
+                                    {formatEmployeeName(employee.dse_name)?.charAt(0) || '?'}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-800">{formatEmployeeName(employee.dse_name)}</p>
+                                    <p className="text-sm text-gray-500">{employee.branch} • {employee.dse_type}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-xs text-gray-700 bg-gray-200 px-3 py-1 rounded-full max-w-[200px] truncate block">
+                                    {reason}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <FiCalendar className="mx-auto text-4xl text-gray-300 mb-2" />
+                          <p className="text-gray-500">No employees were on leave on this date.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setShowDateLeaveModal(false);
+                      setSelectedDateForLeave(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Close
                   </motion.button>
                 </div>
               </div>
@@ -1034,7 +1257,7 @@ export default function LeaveDashboard() {
                             <span className="text-gray-500">Last Leave</span>
                             <span className="font-medium">
                               {leaveDetails.length > 0 
-                                ? new Date(leaveDetails[0].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                                ? leaveDetails[0].date
                                 : 'None'}
                             </span>
                           </div>
@@ -1056,7 +1279,7 @@ export default function LeaveDashboard() {
                           <p className="text-gray-500 text-sm">Last Leave</p>
                           <p className="font-medium text-lg">
                             {leaveDetails.length > 0 
-                              ? new Date(leaveDetails[0].date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                              ? leaveDetails[0].date
                               : 'None'}
                           </p>
                         </div>
@@ -1092,6 +1315,7 @@ export default function LeaveDashboard() {
                           <button
                             onClick={() => {
                               setSelectedEmployee(dse.dse_name);
+                              setLeaveDate(new Date());
                               setShowLeaveModal(true);
                             }}
                             className="mt-4 w-full text-center text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
