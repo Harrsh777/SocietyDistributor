@@ -38,7 +38,7 @@ export default function DSENamesPage() {
 
       // Get unique records based on dse_name (keep first occurrence)
       const uniqueMap = new Map<string, DSERecord>();
-      data.forEach((item: any) => {
+      data.forEach((item: { dse_name: string; sm?: string | null; ct?: string | null; be?: string | null; tbe?: string | null; dse_type?: string | null }) => {
         if (item.dse_name && !uniqueMap.has(item.dse_name)) {
           uniqueMap.set(item.dse_name, {
             dse_name: item.dse_name,

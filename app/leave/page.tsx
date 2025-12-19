@@ -500,15 +500,15 @@ export default function LeaveDashboard() {
       let leaveColumnIndex = 6; // Default to Column G
       
       if (data.length > 0) {
-        const firstRow = data[0] as any[];
+        const firstRow = data[0] as unknown[];
         if (firstRow && firstRow.length > 0) {
           // Check if first row looks like a header
           const firstCell = String(firstRow[0] || '').toLowerCase();
-          const hasDseNameHeader = firstRow.some((cell: any, idx: number) => {
+          const hasDseNameHeader = firstRow.some((cell: unknown, idx: number) => {
             const cellStr = String(cell || '').toLowerCase();
             return cellStr.includes('dse name') || (cellStr.includes('name') && idx === 0);
           });
-          const hasLeaveHeader = firstRow.some((cell: any, idx: number) => {
+          const hasLeaveHeader = firstRow.some((cell: unknown) => {
             const cellStr = String(cell || '').toLowerCase();
             return cellStr.includes('leave');
           });
@@ -534,7 +534,7 @@ export default function LeaveDashboard() {
             }
             
             // Also search all columns as fallback (in case structure is different)
-            firstRow.forEach((cell: any, idx: number) => {
+            firstRow.forEach((cell: unknown, idx: number) => {
               const cellStr = String(cell || '').toLowerCase().trim();
               // Only override name column if we find exact "dse name" in a different column
               if (idx !== 0 && (cellStr === 'dse name' || cellStr.includes('dse name'))) {
@@ -553,7 +553,7 @@ export default function LeaveDashboard() {
       
       // Process all rows starting from startRow
       for (let i = startRow; i < data.length; i++) {
-        const row = data[i] as any[];
+        const row = data[i] as unknown[];
         if (!row || row.length === 0) continue;
         
         // Get name from the detected name column (default Column A)
@@ -606,7 +606,7 @@ export default function LeaveDashboard() {
       // Additional debugging: Check a few sample rows to see what's in the leave column
       console.log('Sample rows with leave column values:');
       for (let i = startRow; i < Math.min(startRow + 10, data.length); i++) {
-        const row = data[i] as any[];
+        const row = data[i] as unknown[];
         if (row && row.length > leaveColumnIndex) {
           const name = row[nameColumnIndex] ? String(row[nameColumnIndex]).trim() : '';
           const leave = row[leaveColumnIndex];
@@ -619,7 +619,7 @@ export default function LeaveDashboard() {
       if (leaveEntries.length === 0) {
         // Show more helpful error message with debugging info
         const sampleRows = data.slice(startRow, startRow + 5).map((row: unknown, idx: number) => {
-          const rowArray = row as any[];
+          const rowArray = row as unknown[];
           const cols = [];
           // Show the detected name column and leave column
           const nameVal = rowArray[nameColumnIndex] ? String(rowArray[nameColumnIndex]).trim() : '';
@@ -1316,10 +1316,10 @@ export default function LeaveDashboard() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Upload Excel File</label>
                         <p className="text-xs text-gray-500 mb-2">
-                          Upload .xlsx file with Column A = DSE names, Column G = "L" for employees on leave
+                          Upload .xlsx file with Column A = DSE names, Column G = &quot;L&quot; for employees on leave
                         </p>
                         <p className="text-xs text-gray-400 mb-2">
-                          Expected format: Column A (DSE Name), Column B (SM), Column C (CT), Column D (BE), Column E (TBE), Column F (DSE Type), Column G (Leave - with "L")
+                          Expected format: Column A (DSE Name), Column B (SM), Column C (CT), Column D (BE), Column E (TBE), Column F (DSE Type), Column G (Leave - with &quot;L&quot;)
                         </p>
                         <div className="mt-2">
                           <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
