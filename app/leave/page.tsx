@@ -7,12 +7,13 @@ import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
   FiRefreshCw, FiFilter, FiSearch, FiUser, FiCalendar,
   FiTrendingUp, FiAlertCircle, FiX, FiPlus, FiChevronDown,
-  FiMail, FiPhone, FiAward 
+  FiMail, FiPhone, FiAward, FiUpload, FiFile
 } from 'react-icons/fi';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { formatDateForDB } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 
 const COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
@@ -43,6 +44,67 @@ const formatEmployeeName = (name: string): string => {
     formatted = formatted.substring(0, lastDotIndex);
   }
   return formatted.replace(/\d+$/, '').trim();
+};
+
+// Normalize name for matching (removes prefixes, numbers, dots, etc.)
+const normalizeNameForMatching = (name: string): string => {
+  if (!name) return '';
+  // Remove common prefixes (M_, S_, T_, W_)
+  let normalized = name.replace(/^[MSTW]_/i, '');
+  // Remove trailing numbers and dots (e.g., ".6392752846" or ".96-48472721")
+  normalized = normalized.replace(/\.\d+.*$/, '');
+  // Remove trailing numbers without dot (e.g., "2" in "W_Mukesh Sahu 2")
+  normalized = normalized.replace(/\s+\d+$/, '');
+  normalized = normalized.replace(/\d+$/, '');
+  // Remove trailing dots
+  normalized = normalized.replace(/\.+$/, '');
+  // Trim whitespace
+  normalized = normalized.trim();
+  // Convert to lowercase for case-insensitive matching
+  return normalized.toLowerCase();
+};
+
+// Match Excel name with database dse_name
+const findMatchingDSE = (excelName: string, dbNames: string[]): { matched: boolean; dbName?: string } => {
+  const normalizedExcel = normalizeNameForMatching(excelName);
+  
+  if (!normalizedExcel) return { matched: false };
+  
+  // Try exact match first (most reliable)
+  for (const dbName of dbNames) {
+    const normalizedDB = normalizeNameForMatching(dbName);
+    if (normalizedExcel === normalizedDB) {
+      return { matched: true, dbName };
+    }
+  }
+  
+  // Try match after removing hyphens and special characters (for names like "S_Ajay-Chaubepur")
+  const excelWithoutHyphens = normalizedExcel.replace(/[-_]/g, '');
+  for (const dbName of dbNames) {
+    const normalizedDB = normalizeNameForMatching(dbName);
+    const dbWithoutHyphens = normalizedDB.replace(/[-_]/g, '');
+    if (excelWithoutHyphens === dbWithoutHyphens && excelWithoutHyphens.length > 3) {
+      return { matched: true, dbName };
+    }
+  }
+  
+  // Try partial match (Excel name contains DB name or vice versa) - only for substantial names
+  for (const dbName of dbNames) {
+    const normalizedDB = normalizeNameForMatching(dbName);
+    if (normalizedExcel.length > 5 && normalizedDB.length > 5) {
+      // Check if one contains the other (for cases where location is added/removed)
+      if (normalizedExcel.includes(normalizedDB) || normalizedDB.includes(normalizedExcel)) {
+        // Ensure at least 70% of the shorter name is in the longer one
+        const shorter = normalizedExcel.length < normalizedDB.length ? normalizedExcel : normalizedDB;
+        const longer = normalizedExcel.length >= normalizedDB.length ? normalizedExcel : normalizedDB;
+        if (longer.includes(shorter) && shorter.length / longer.length > 0.7) {
+          return { matched: true, dbName };
+        }
+      }
+    }
+  }
+  
+  return { matched: false };
 };
 
 const calculateTotalLeaves = (employee: EmployeeData): number => {
@@ -100,6 +162,12 @@ export default function LeaveDashboard() {
   const [showDateLeaveModal, setShowDateLeaveModal] = useState<boolean>(false);
 
   const [todaysDateKey, setTodaysDateKey] = useState<string>('');
+
+  // Excel upload states
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [parsedLeaves, setParsedLeaves] = useState<Array<{ name: string; matched: boolean; dbName?: string; id?: string }>>([]);
+  const [showExcelConfirm, setShowExcelConfirm] = useState<boolean>(false);
+  const [uploadMode, setUploadMode] = useState<'single' | 'excel'>('single');
 
   useEffect(() => {
     // Set to current date or June 1, 2025 if current date is before database range
@@ -406,6 +474,268 @@ export default function LeaveDashboard() {
       console.error('Error adding leave:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       alert(`Failed to add leave: ${errorMessage}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Excel file upload and parsing
+  const handleExcelUpload = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+      // Extract names from Column A (index 0) and L indicator from Column G (index 6)
+      const leaveEntries: Array<{ name: string; hasLeave: boolean }> = [];
+      
+      // Debug: Log first few rows to understand structure
+      console.log('First 10 rows of Excel:', data.slice(0, 10));
+      
+      // Try to detect header row and find which columns contain names and leave indicators
+      let startRow = 0;
+      let nameColumnIndex = 0; // Default to Column A
+      let leaveColumnIndex = 6; // Default to Column G
+      
+      if (data.length > 0) {
+        const firstRow = data[0] as any[];
+        if (firstRow && firstRow.length > 0) {
+          // Check if first row looks like a header
+          const firstCell = String(firstRow[0] || '').toLowerCase();
+          const hasDseNameHeader = firstRow.some((cell: any, idx: number) => {
+            const cellStr = String(cell || '').toLowerCase();
+            return cellStr.includes('dse name') || (cellStr.includes('name') && idx === 0);
+          });
+          const hasLeaveHeader = firstRow.some((cell: any, idx: number) => {
+            const cellStr = String(cell || '').toLowerCase();
+            return cellStr.includes('leave');
+          });
+          
+          if (hasDseNameHeader || hasLeaveHeader || firstCell.includes('dse') || firstCell.includes('name')) {
+            startRow = 1; // Skip header row
+            console.log('Detected header row, starting from row 2');
+            
+            // Check Column A (index 0) first - it should contain "DSE Name"
+            const colAHeader = String(firstRow[0] || '').toLowerCase().trim();
+            if (colAHeader.includes('dse name') || colAHeader.includes('name')) {
+              nameColumnIndex = 0; // Column A
+              console.log(`Found DSE Name column at index 0 (Column A) - header: "${firstRow[0]}"`);
+            }
+            
+            // Check Column G (index 6) - it should contain "Leave"
+            if (firstRow.length > 6) {
+              const colGHeader = String(firstRow[6] || '').toLowerCase().trim();
+              if (colGHeader.includes('leave')) {
+                leaveColumnIndex = 6; // Column G
+                console.log(`Found Leave column at index 6 (Column G) - header: "${firstRow[6]}"`);
+              }
+            }
+            
+            // Also search all columns as fallback (in case structure is different)
+            firstRow.forEach((cell: any, idx: number) => {
+              const cellStr = String(cell || '').toLowerCase().trim();
+              // Only override name column if we find exact "dse name" in a different column
+              if (idx !== 0 && (cellStr === 'dse name' || cellStr.includes('dse name'))) {
+                nameColumnIndex = idx;
+                console.log(`Found DSE Name column at index ${idx} (Column ${String.fromCharCode(65 + idx)})`);
+              }
+              // Only override leave column if we find exact "leave" in a different column
+              if (idx !== 6 && cellStr === 'leave') {
+                leaveColumnIndex = idx;
+                console.log(`Found Leave column at index ${idx} (Column ${String.fromCharCode(65 + idx)})`);
+              }
+            });
+          }
+        }
+      }
+      
+      // Process all rows starting from startRow
+      for (let i = startRow; i < data.length; i++) {
+        const row = data[i] as any[];
+        if (!row || row.length === 0) continue;
+        
+        // Get name from the detected name column (default Column A)
+        const nameCell = row[nameColumnIndex];
+        const name = nameCell ? String(nameCell).trim() : '';
+        
+        // Skip empty rows or rows that look like headers
+        if (!name || 
+            name.toLowerCase().includes('dse name') || 
+            name.toLowerCase() === 'name' ||
+            name.toLowerCase().includes('dse type') ||
+            name.toLowerCase() === 'old dse') continue;
+        
+        // Check the leave column (default Column G, index 6) for 'L'
+        // Only process rows where the leave column has 'L' (empty cells are skipped)
+        const leaveCell = row[leaveColumnIndex];
+        let leaveIndicator = '';
+        if (leaveCell !== null && leaveCell !== undefined && leaveCell !== '') {
+          leaveIndicator = String(leaveCell).trim().toUpperCase();
+        }
+        
+        // Debug: Log rows with names to see what's happening
+        if (i < startRow + 5) {
+          console.log(`Row ${i + 1}: Name="${name}", Leave="${leaveIndicator}" (raw: ${JSON.stringify(leaveCell)})`);
+        }
+        
+        // Check if leave indicator is 'L' (case-insensitive, handle whitespace)
+        // Also check if it might be a boolean true or other variations
+        const hasLeave = leaveIndicator === 'L' || 
+                        leaveIndicator === 'L ' || 
+                        leaveIndicator === ' L' ||
+                        (typeof leaveCell === 'boolean' && leaveCell === true) ||
+                        (typeof leaveCell === 'string' && leaveCell.trim().toUpperCase() === 'L');
+        
+        // Only add to leave entries if the leave column contains 'L'
+        // This means we only process employees who are actually on leave
+        if (name && hasLeave) {
+          leaveEntries.push({ name, hasLeave: true });
+          if (leaveEntries.length <= 5) {
+            console.log(`Added leave entry: "${name}" with leave indicator: "${leaveIndicator}"`);
+          }
+        }
+      }
+
+      console.log(`Found ${leaveEntries.length} leave entries in Excel file`);
+      console.log('Sample entries:', leaveEntries.slice(0, 5));
+      console.log(`Name column: ${String.fromCharCode(65 + nameColumnIndex)} (index ${nameColumnIndex})`);
+      console.log(`Leave column: ${String.fromCharCode(65 + leaveColumnIndex)} (index ${leaveColumnIndex})`);
+      
+      // Additional debugging: Check a few sample rows to see what's in the leave column
+      console.log('Sample rows with leave column values:');
+      for (let i = startRow; i < Math.min(startRow + 10, data.length); i++) {
+        const row = data[i] as any[];
+        if (row && row.length > leaveColumnIndex) {
+          const name = row[nameColumnIndex] ? String(row[nameColumnIndex]).trim() : '';
+          const leave = row[leaveColumnIndex];
+          if (name) {
+            console.log(`  Row ${i + 1}: Name="${name}", Leave=${JSON.stringify(leave)} (type: ${typeof leave})`);
+          }
+        }
+      }
+
+      if (leaveEntries.length === 0) {
+        // Show more helpful error message with debugging info
+        const sampleRows = data.slice(startRow, startRow + 5).map((row: unknown, idx: number) => {
+          const rowArray = row as any[];
+          const cols = [];
+          // Show the detected name column and leave column
+          const nameVal = rowArray[nameColumnIndex] ? String(rowArray[nameColumnIndex]).trim() : '';
+          const leaveVal = rowArray[leaveColumnIndex];
+          cols.push(`Col ${String.fromCharCode(65 + nameColumnIndex)}="${nameVal}"`);
+          if (rowArray.length > leaveColumnIndex) {
+            cols.push(`Col ${String.fromCharCode(65 + leaveColumnIndex)}=${JSON.stringify(leaveVal)}`);
+          }
+          return `Row ${startRow + idx + 1}: ${cols.join(', ')}`;
+        }).join('\n');
+        
+        alert(`No leave entries found in the Excel file.\n\nDetected columns:\n- Name column: ${String.fromCharCode(65 + nameColumnIndex)} (index ${nameColumnIndex})\n- Leave column: ${String.fromCharCode(65 + leaveColumnIndex)} (index ${leaveColumnIndex})\n\nPlease ensure the Leave column contains "L" (capital L) for employees on leave.\n\nSample rows:\n${sampleRows}\n\nCheck the browser console for detailed debugging information.`);
+        return;
+      }
+
+      // Get all unique dse_name values from database
+      const dbNames = [...new Set(attendanceData.map((dse) => dse.dse_name).filter(Boolean))] as string[];
+
+      // Match Excel names with database names
+      const matchedLeaves = leaveEntries.map((entry) => {
+        const match = findMatchingDSE(entry.name, dbNames);
+        if (match.matched && match.dbName) {
+          // Find the employee ID
+          const employee = attendanceData.find(emp => emp.dse_name === match.dbName);
+          return {
+            name: entry.name,
+            matched: true,
+            dbName: match.dbName,
+            id: employee?.id
+          };
+        }
+        return {
+          name: entry.name,
+          matched: false
+        };
+      });
+
+      setParsedLeaves(matchedLeaves);
+      setShowExcelConfirm(true);
+    } catch (error) {
+      console.error('Error parsing Excel file:', error);
+      alert('Failed to parse Excel file. Please make sure it is a valid .xlsx file.');
+    }
+  };
+
+  // Handle batch leave submission from Excel
+  const handleBatchLeaveSubmit = async () => {
+    if (!leaveDate) {
+      alert('Please select a date first.');
+      return;
+    }
+
+    const matchedEntries = parsedLeaves.filter(entry => entry.matched && entry.id);
+    
+    if (matchedEntries.length === 0) {
+      alert('No matched employees found. Please check the Excel file format.');
+      return;
+    }
+
+    const isConfirmed = window.confirm(
+      `Are you sure you want to mark ${matchedEntries.length} employee(s) as absent (L) for ${leaveDate.toLocaleDateString()}?`
+    );
+    
+    if (!isConfirmed) return;
+
+    setLoading(true);
+
+    try {
+      const formattedDate = formatDateForDB(leaveDate);
+      const formattedReasonColumn = `${formattedDate}_reason`;
+      const defaultReason = 'Bulk upload from Excel';
+
+      // Batch update all matched employees
+      const updatePromises = matchedEntries.map(async (entry) => {
+        if (!entry.id) return;
+
+        const updateData = {
+          [formattedDate]: 'L',
+          [formattedReasonColumn]: defaultReason
+        };
+
+        const { error } = await supabase
+          .from('dse_attendance')
+          .update(updateData)
+          .eq('id', entry.id);
+
+        if (error) {
+          console.error(`Error updating ${entry.dbName}:`, error);
+          throw error;
+        }
+      });
+
+      await Promise.all(updatePromises);
+
+      // Refresh attendance data
+      await fetchAttendanceData();
+
+      // Show success message
+      const unmatchedCount = parsedLeaves.filter(entry => !entry.matched).length;
+      let message = `Successfully marked ${matchedEntries.length} employee(s) as absent (L).`;
+      if (unmatchedCount > 0) {
+        message += `\n\nNote: ${unmatchedCount} name(s) from Excel could not be matched with database records.`;
+      }
+      alert(message);
+
+      // Reset states
+      setShowExcelConfirm(false);
+      setShowLeaveModal(false);
+      setExcelFile(null);
+      setParsedLeaves([]);
+      setLeaveDate(null);
+      setUploadMode('single');
+    } catch (error) {
+      console.error('Error submitting batch leaves:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      alert(`Failed to submit leaves: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -825,12 +1155,46 @@ export default function LeaveDashboard() {
                   <p className="text-gray-500">Add a new leave entry for an employee</p>
                 </div>
 
+                {/* Upload Mode Toggle */}
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                  <button
+                    onClick={() => {
+                      setUploadMode('single');
+                      setExcelFile(null);
+                      setParsedLeaves([]);
+                    }}
+                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      uploadMode === 'single'
+                        ? 'bg-white text-indigo-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Single Entry
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUploadMode('excel');
+                      setSelectedEmployee('');
+                      setLeaveReason('');
+                    }}
+                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      uploadMode === 'excel'
+                        ? 'bg-white text-indigo-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Excel Upload
+                  </button>
+                </div>
+
                 <motion.div 
                   layout
                   className="space-y-4"
                 >
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Employee</label>
+                  {uploadMode === 'single' ? (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Employee</label>
                     <motion.div
                       whileFocus={{ boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.5)" }}
                       className="relative"
@@ -848,12 +1212,12 @@ export default function LeaveDashboard() {
                           </option>
                         ))}
                       </select>
-                      <FiChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    </motion.div>
-                  </div>
+                        <FiChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </motion.div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Date</label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Date</label>
                     <p className="text-xs text-gray-500 mb-2">You can only apply leave for yesterday, today, or tomorrow</p>
                     <motion.div
                       whileFocus={{ boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.5)" }}
@@ -906,6 +1270,100 @@ export default function LeaveDashboard() {
                       required
                     />
                   </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Leave Date</label>
+                        <p className="text-xs text-gray-500 mb-2">Select the date for which leaves will be marked</p>
+                        <motion.div
+                          whileFocus={{ boxShadow: "0 0 0 2px rgba(99, 102, 241, 0.5)" }}
+                          className="relative"
+                        >
+                          <DatePicker
+                            selected={leaveDate}
+                            onChange={(date: Date | null) => setLeaveDate(date)}
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            dateFormat="dd-MMM-yy"
+                            minDate={new Date(2025, 5, 1)}
+                            maxDate={new Date(2025, 11, 31)}
+                            filterDate={(date) => {
+                              const month = date.getMonth();
+                              const year = date.getFullYear();
+                              if (year !== 2025 || month < 5 || month > 11) {
+                                return false;
+                              }
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              const yesterday = new Date(today);
+                              yesterday.setDate(today.getDate() - 1);
+                              const tomorrow = new Date(today);
+                              tomorrow.setDate(today.getDate() + 1);
+                              
+                              const selectedDate = new Date(date);
+                              selectedDate.setHours(0, 0, 0, 0);
+                              
+                              return selectedDate.getTime() === today.getTime() ||
+                                     selectedDate.getTime() === yesterday.getTime() ||
+                                     selectedDate.getTime() === tomorrow.getTime();
+                            }}
+                            required
+                          />
+                          <FiCalendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </motion.div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Upload Excel File</label>
+                        <p className="text-xs text-gray-500 mb-2">
+                          Upload .xlsx file with Column A = DSE names, Column G = "L" for employees on leave
+                        </p>
+                        <p className="text-xs text-gray-400 mb-2">
+                          Expected format: Column A (DSE Name), Column B (SM), Column C (CT), Column D (BE), Column E (TBE), Column F (DSE Type), Column G (Leave - with "L")
+                        </p>
+                        <div className="mt-2">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              {excelFile ? (
+                                <>
+                                  <FiFile className="w-10 h-10 mb-2 text-indigo-600" />
+                                  <p className="mb-2 text-sm text-gray-700 font-medium">{excelFile.name}</p>
+                                  <p className="text-xs text-gray-500">Click to change file</p>
+                                </>
+                              ) : (
+                                <>
+                                  <FiUpload className="w-10 h-10 mb-2 text-gray-400" />
+                                  <p className="mb-2 text-sm text-gray-700">
+                                    <span className="font-semibold">Click to upload</span> or drag and drop
+                                  </p>
+                                  <p className="text-xs text-gray-500">.xlsx files only</p>
+                                </>
+                              )}
+                            </div>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept=".xlsx,.xls"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setExcelFile(file);
+                                  handleExcelUpload(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                        {excelFile && parsedLeaves.length > 0 && (
+                          <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                            <p className="text-sm text-blue-800">
+                              Found {parsedLeaves.filter(p => p.matched).length} matched employee(s) out of {parsedLeaves.length} total
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </motion.div>
 
                 <div className="flex gap-3 pt-2">
@@ -917,7 +1375,135 @@ export default function LeaveDashboard() {
                       setSelectedEmployee('');
                       setLeaveDate(null);
                       setLeaveReason('');
+                      setExcelFile(null);
+                      setParsedLeaves([]);
+                      setUploadMode('single');
                     }}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancel
+                  </motion.button>
+                  {uploadMode === 'single' ? (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleAddLeave}
+                      disabled={!selectedEmployee || !leaveDate || !leaveReason}
+                      className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium transition-colors ${
+                        !selectedEmployee || !leaveDate || !leaveReason
+                          ? 'bg-indigo-300 cursor-not-allowed'
+                          : 'bg-indigo-600 hover:bg-indigo-700'
+                      }`}
+                    >
+                      {loading ? (
+                        <span className="flex items-center justify-center">
+                          <FiRefreshCw className="animate-spin mr-2" />
+                          Processing...
+                        </span>
+                      ) : (
+                        "Submit Leave"
+                      )}
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setShowExcelConfirm(true)}
+                      disabled={!leaveDate || !excelFile || parsedLeaves.length === 0 || parsedLeaves.filter(p => p.matched).length === 0}
+                      className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium transition-colors ${
+                        !leaveDate || !excelFile || parsedLeaves.length === 0 || parsedLeaves.filter(p => p.matched).length === 0
+                          ? 'bg-indigo-300 cursor-not-allowed'
+                          : 'bg-indigo-600 hover:bg-indigo-700'
+                      }`}
+                    >
+                      Review & Submit
+                    </motion.button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Excel Upload Confirmation Modal */}
+      <AnimatePresence>
+        {showExcelConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl relative max-h-[90vh] overflow-y-auto"
+            >
+              <button 
+                onClick={() => setShowExcelConfirm(false)}
+                className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <FiX className="text-gray-500 hover:text-gray-700" size={20} />
+              </button>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-1">Confirm Leave Submission</h3>
+                  <p className="text-gray-500">
+                    Review the matched employees before submitting leaves for {leaveDate?.toLocaleDateString()}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FiAlertCircle className="text-green-600" />
+                      <h4 className="font-semibold text-green-800">
+                        Matched Employees ({parsedLeaves.filter(p => p.matched).length})
+                      </h4>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {parsedLeaves.filter(p => p.matched).map((entry, idx) => (
+                        <div key={idx} className="text-sm text-green-700 bg-white p-2 rounded border border-green-100">
+                          <span className="font-medium">{entry.name}</span>
+                          {entry.dbName && entry.dbName !== entry.name && (
+                            <span className="text-gray-500 ml-2">→ {entry.dbName}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {parsedLeaves.filter(p => !p.matched).length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FiAlertCircle className="text-yellow-600" />
+                        <h4 className="font-semibold text-yellow-800">
+                          Unmatched Names ({parsedLeaves.filter(p => !p.matched).length})
+                        </h4>
+                      </div>
+                      <p className="text-xs text-yellow-700 mb-2">
+                        These names from Excel could not be matched with database records. They will be skipped.
+                      </p>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {parsedLeaves.filter(p => !p.matched).map((entry, idx) => (
+                          <div key={idx} className="text-sm text-yellow-700 bg-white p-2 rounded border border-yellow-100">
+                            {entry.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowExcelConfirm(false)}
                     className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                   >
                     Cancel
@@ -925,10 +1511,10 @@ export default function LeaveDashboard() {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={handleAddLeave}
-                    disabled={!selectedEmployee || !leaveDate || !leaveReason}
+                    onClick={handleBatchLeaveSubmit}
+                    disabled={loading || parsedLeaves.filter(p => p.matched).length === 0}
                     className={`flex-1 px-4 py-2.5 text-white rounded-lg font-medium transition-colors ${
-                      !selectedEmployee || !leaveDate || !leaveReason
+                      loading || parsedLeaves.filter(p => p.matched).length === 0
                         ? 'bg-indigo-300 cursor-not-allowed'
                         : 'bg-indigo-600 hover:bg-indigo-700'
                     }`}
@@ -936,10 +1522,10 @@ export default function LeaveDashboard() {
                     {loading ? (
                       <span className="flex items-center justify-center">
                         <FiRefreshCw className="animate-spin mr-2" />
-                        Processing...
+                        Submitting...
                       </span>
                     ) : (
-                      "Submit Leave"
+                      `Submit Leaves (${parsedLeaves.filter(p => p.matched).length})`
                     )}
                   </motion.button>
                 </div>
