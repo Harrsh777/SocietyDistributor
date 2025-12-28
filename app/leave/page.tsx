@@ -7,7 +7,7 @@ import { useAutoAnimate } from '@formkit/auto-animate/react';
 import {
   FiRefreshCw, FiFilter, FiSearch, FiUser, FiCalendar,
   FiTrendingUp, FiAlertCircle, FiX, FiPlus, FiChevronDown,
-  FiMail, FiPhone, FiAward, FiUpload, FiFile
+  FiMail, FiPhone, FiAward, FiUpload, FiFile, FiDownload
 } from 'react-icons/fi';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DatePicker from 'react-datepicker';
@@ -477,6 +477,38 @@ export default function LeaveDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Download Excel template for bulk leave upload
+  const downloadExcelTemplate = () => {
+    // Create template data with headers and example rows
+    const templateData = [
+      ['DSE Name', 'SM', 'CT', 'BE', 'TBE', 'DSE Type', 'Leave'],
+      ['Example Employee 1', 'SM001', 'CT001', 'BE001', 'TBE001', 'Type A', 'L'],
+      ['Example Employee 2', 'SM002', 'CT002', 'BE002', 'TBE002', 'Type B', ''],
+    ];
+
+    // Create workbook and worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet(templateData);
+    
+    // Set column widths for better readability
+    worksheet['!cols'] = [
+      { wch: 25 }, // DSE Name
+      { wch: 10 }, // SM
+      { wch: 10 }, // CT
+      { wch: 10 }, // BE
+      { wch: 10 }, // TBE
+      { wch: 12 }, // DSE Type
+      { wch: 8 },  // Leave
+    ];
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leave Template');
+
+    // Generate file and download
+    const fileName = 'Bulk_Leave_Upload_Template.xlsx';
+    XLSX.writeFile(workbook, fileName);
   };
 
   // Handle Excel file upload and parsing
@@ -1314,7 +1346,19 @@ export default function LeaveDashboard() {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Upload Excel File</label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">Upload Excel File</label>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={downloadExcelTemplate}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
+                            type="button"
+                          >
+                            <FiDownload className="text-sm" />
+                            Download Template
+                          </motion.button>
+                        </div>
                         <p className="text-xs text-gray-500 mb-2">
                           Upload .xlsx file with Column A = DSE names, Column G = &quot;L&quot; for employees on leave
                         </p>
