@@ -1930,7 +1930,7 @@ export default function LeaveDashboard() {
           </div>
           <h3 className="text-xl font-medium text-gray-600">No employees found</h3>
           <p className="text-gray-500 mt-2">
-            Try adjusting your search or filter criteria
+            Try adjusting your search or filters criteria
           </p>
         </motion.div>
       )}
